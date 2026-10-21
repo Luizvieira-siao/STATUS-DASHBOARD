@@ -282,9 +282,15 @@ function renderDashboard() {
     : '<div class="empty">Nenhum assistente criado ainda.</div>';
 
   document.getElementById('lista-pastas').innerHTML = db.pastas.length
-    ? db.pastas.map(p => `<div class="assistant-item">
-        <div><strong>📁 ${esc(p.nome)}</strong></div>
-      </div>`).join('')
+    ? db.pastas.map(p => {
+        const assistentes = p.assistentes.map(id => byUid(db.assistentes, id)).filter(Boolean);
+        return `<details class="folder-details">
+          <summary><span class="folder-title">📁 ${esc(p.nome)}</span><span class="folder-count">${assistentes.length} assistente(s)</span></summary>
+          <div class="folder-content">${assistentes.length
+            ? `<div class="chips">${assistentes.map(chipAssist).join('')}</div>`
+            : '<p class="muted">Nenhum assistente vinculado.</p>'}</div>
+        </details>`;
+      }).join('')
     : '<div class="empty">Nenhuma pasta criada ainda.</div>';
 
   // Gráficos
