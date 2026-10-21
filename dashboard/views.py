@@ -124,3 +124,14 @@ def import_legacy(request):
         return JsonResponse(snapshot())
     except (ValueError, TypeError, KeyError, ValidationError, IntegrityError):
         return JsonResponse({'error': 'Não foi possível importar. Verifique os registros e vínculos locais.'}, status=400)
+
+
+@login_required
+@require_http_methods(['DELETE'])
+def unlink_folder(request, registry_uid, folder_uid):
+    with transaction.atomic():
+        registry = Cartorio.objects.select_for_update().filter(pk=registry_uid).first()
+        if registry is None or not Pasta.objects.filter(pk=folder_uid).exists():
+            return JsonResponse({'error': 'Cartório ou pasta não encontrado.'}, status=404)
+        registry.pastas.remove(folder_uid)
+    return JsonResponse(snapshot())

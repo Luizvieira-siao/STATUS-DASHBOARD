@@ -89,6 +89,18 @@ document.querySelectorAll('.tab').forEach(btn => {
   });
 });
 
+// Alterna a lista lateral; pastas é a visualização inicial.
+document.querySelectorAll('[data-list]').forEach(button => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('[data-list]').forEach(option => {
+      const selected = option === button;
+      option.classList.toggle('active', selected);
+      option.setAttribute('aria-pressed', String(selected));
+      document.getElementById('lista-' + option.dataset.list).hidden = !selected;
+    });
+  });
+});
+
 // ===== Modais =====
 function preencherSelects(form) {
   form.querySelectorAll('.sel-estado').forEach(sel => {
@@ -165,7 +177,21 @@ async function excluir(tipo, id) {
     toast(error.message);
   }
 }
-document.addEventListener('click', e => {
+document.addEventListener('click', async e => {
+  const unlink = e.target.closest('[data-unlink-folder]');
+  if (unlink) {
+    if (!confirm('Remover esta pasta do cartório? A pasta e seus assistentes serão preservados.')) return;
+    unlink.disabled = true;
+    try {
+      updateState(await api('/api/cartorios/' + unlink.dataset.registry + '/pastas/' + unlink.dataset.unlinkFolder + '/', 'DELETE'));
+      toast('Pasta removida do cartório.');
+    } catch (error) {
+      toast(error.message);
+    } finally {
+      unlink.disabled = false;
+    }
+    return;
+  }
   const b = e.target.closest('[data-del]');
   if (b) excluir(b.dataset.del, b.dataset.id);
 });
@@ -225,7 +251,8 @@ function renderDashboard() {
         </div>
         ${pastas.length ? `<div class="sub"><h4>Pastas</h4>${pastas.map(p => {
           const as = p.assistentes.map(id => byUid(db.assistentes, id)).filter(Boolean);
-          return `<div class="pasta"><div class="pasta-nome">📁 ${esc(p.nome)}</div>
+          return `<div class="pasta"><div class="pasta-header"><div class="pasta-nome">📁 ${esc(p.nome)}</div>
+            <button type="button" class="btn-ghost" data-unlink-folder="${p.uid}" data-registry="${c.uid}" aria-label="Remover ${esc(p.nome)} do cartório ${esc(c.nome)}">Remover do cartório</button></div>
             ${as.length ? `<div class="chips">${as.map(chipAssist).join('')}</div>` : '<div class="muted" style="font-size:12px">Sem assistentes</div>'}</div>`;
         }).join('')}</div>` : ''}
         ${assist.length ? `<div class="sub"><h4>Assistentes do cartório</h4><div class="chips">${assist.map(chipAssist).join('')}</div></div>` : ''}
@@ -238,6 +265,12 @@ function renderDashboard() {
         <button type="button" class="btn-ghost" data-edit-assistente="${a.uid}" aria-label="Editar ${esc(a.nome)}">Editar</button>
       </div>`).join('')
     : '<div class="empty">Nenhum assistente criado ainda.</div>';
+
+  document.getElementById('lista-pastas').innerHTML = db.pastas.length
+    ? db.pastas.map(p => `<div class="assistant-item">
+        <div><strong>📁 ${esc(p.nome)}</strong></div>
+      </div>`).join('')
+    : '<div class="empty">Nenhuma pasta criada ainda.</div>';
 
   // Gráficos
   const porLlm = {};

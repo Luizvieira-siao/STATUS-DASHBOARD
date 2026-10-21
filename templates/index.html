@@ -53,8 +53,12 @@
         </div>
         <div class="side">
           <div class="panel">
-            <h2>Assistentes</h2>
-            <div id="lista-assistentes"></div>
+            <div class="list-switch" role="group" aria-label="Mostrar pastas ou assistentes">
+              <button type="button" class="list-switch-button" data-list="assistentes" aria-pressed="false" aria-controls="lista-assistentes">Assistentes</button>
+              <button type="button" class="list-switch-button active" data-list="pastas" aria-pressed="true" aria-controls="lista-pastas">Pastas</button>
+            </div>
+            <div id="lista-assistentes" hidden></div>
+            <div id="lista-pastas"></div>
           </div>
           <div class="panel">
             <h2>Assistentes por LLM</h2>

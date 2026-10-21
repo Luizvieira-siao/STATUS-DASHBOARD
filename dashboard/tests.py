@@ -108,6 +108,32 @@ class DashboardTests(TestCase):
         self.assertEqual(secure_client.patch(path, data='{"nome":"Alterado","llm":"GPT"}', content_type='application/json').status_code, 403)
         self.assertEqual(Client().patch(path, data='{}', content_type='application/json').status_code, 302)
 
+    def test_unlink_folder_preserves_records_and_other_registries(self):
+        folder = Pasta.objects.create(owner=self.user, nome='Compartilhada')
+        assistant = Assistente.objects.create(owner=self.user, nome='Assistente', llm='GPT')
+        folder.assistentes.add(assistant)
+        first = Cartorio.objects.create(owner=self.user, nome='Primeiro', id='P1', estado='PE')
+        second = Cartorio.objects.create(owner=self.other, nome='Segundo', id='P2', estado='PE')
+        first.pastas.add(folder)
+        second.pastas.add(folder)
+        self.client.force_login(self.other)
+        path = f'/api/cartorios/{first.pk}/pastas/{folder.pk}/'
+        response = self.client.delete(path)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(first.pastas.exists())
+        self.assertTrue(second.pastas.filter(pk=folder.pk).exists())
+        self.assertTrue(folder.assistentes.filter(pk=assistant.pk).exists())
+        self.assertTrue(Pasta.objects.filter(pk=folder.pk).exists())
+        self.assertEqual(self.client.delete(path).status_code, 200)
+        self.assertEqual(Client().delete(path).status_code, 302)
+        secure = Client(enforce_csrf_checks=True)
+        secure.force_login(self.user)
+        self.assertEqual(secure.delete(path).status_code, 403)
+        self.assertEqual(self.client.get(path).status_code, 405)
+        import uuid
+        self.assertEqual(self.client.delete(f'/api/cartorios/{first.pk}/pastas/{uuid.uuid4()}/').status_code, 404)
+        self.assertEqual(self.client.delete(f'/api/cartorios/{uuid.uuid4()}/pastas/{folder.pk}/').status_code, 404)
+
 class DeploymentSettingsTests(SimpleTestCase):
     def settings_for(self, **environment):
         import os
