@@ -168,3 +168,6 @@ legend { color: var(--muted); font-size: 11px; padding: 0 7px; }
 .dashboard-list-search { margin-bottom: 12px; font-size: 11px; }
 .dashboard-list-search input { font-size: 12px; }
 #busca-lista-sem-resultados { font-size: 12px; padding: 12px 0; }
+
+.registry-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+@media (max-width: 480px) { .card-head { flex-wrap: wrap; } }

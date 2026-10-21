@@ -187,6 +187,30 @@
     </form>
   </dialog>
 
+  <dialog id="modal-editar-cartorio" class="modal">
+    <form method="dialog" id="form-editar-cartorio">
+      <h2>Editar Cartório</h2>
+      <label>Nome *<input name="nome" required maxlength="200"></label>
+      <div class="row">
+        <label>ID *<input name="id" required maxlength="100"></label>
+        <label>Estado *<select name="estado" required class="sel-estado"></select></label>
+      </div>
+      <fieldset>
+        <legend>Pastas (opcional)</legend>
+        <div class="checklist" data-source="pastas"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Assistentes (opcional)</legend>
+        <div class="checklist" data-source="assistentes"></div>
+      </fieldset>
+      <p class="erro" role="alert" hidden></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn">Salvar alterações</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" hidden></div>
   <script src="{% static 'dashboard/app.js' %}"></script>
 </body>

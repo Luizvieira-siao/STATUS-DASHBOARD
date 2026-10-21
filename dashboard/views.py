@@ -76,7 +76,7 @@ def items(request, kind, uid=None):
     try:
         with transaction.atomic():
             if request.method == 'PATCH':
-                if kind not in ['assistentes', 'pastas'] or uid is None:
+                if uid is None:
                     return JsonResponse({'error': 'Rota inválida.'}, status=405)
                 obj = MODELS[kind].objects.select_for_update().filter(pk=uid).first()
                 if obj is None:
@@ -85,9 +85,14 @@ def items(request, kind, uid=None):
                 obj.nome = text(data, 'nome')
                 if kind == 'assistentes':
                     obj.llm = text(data, 'llm')
+                if kind == 'cartorios':
+                    obj.id, obj.estado = text(data, 'id'), text(data, 'estado')
                 obj.full_clean()
-                obj.save(update_fields=['nome', 'llm'] if kind == 'assistentes' else ['nome'])
-                if kind == 'pastas' and 'assistentes' in data:
+                fields = {'assistentes': ['nome', 'llm'], 'pastas': ['nome'], 'cartorios': ['nome', 'id', 'estado']}
+                obj.save(update_fields=fields[kind])
+                if kind == 'cartorios' and 'pastas' in data:
+                    obj.pastas.set(related(Pasta, data['pastas']))
+                if kind in ['pastas', 'cartorios'] and 'assistentes' in data:
                     obj.assistentes.set(related(Assistente, data['assistentes']))
             elif request.method == 'DELETE':
                 obj = MODELS[kind].objects.filter(pk=uid).first()

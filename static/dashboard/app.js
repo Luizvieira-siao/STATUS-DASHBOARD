@@ -232,6 +232,33 @@ document.getElementById('form-editar-pasta').addEventListener('submit', event =>
   }), event.target.dataset.uid)
 );
 
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-edit-cartorio]');
+  if (!button) return;
+  const cartorio = byUid(db.cartorios, button.dataset.editCartorio);
+  if (!cartorio) return;
+  const form = document.getElementById('form-editar-cartorio');
+  form.reset();
+  form.dataset.uid = cartorio.uid;
+  preencherSelects(form);
+  form.elements.nome.value = cartorio.nome;
+  form.elements.namedItem('id').value = cartorio.id;
+  form.elements.estado.value = cartorio.estado;
+  form.querySelectorAll('.checklist').forEach(box => {
+    box.querySelectorAll('input').forEach(input => {
+      input.checked = cartorio[box.dataset.source].includes(input.value);
+    });
+  });
+  form.querySelector('.erro').hidden = true;
+  form.closest('dialog').showModal();
+});
+document.getElementById('form-editar-cartorio').addEventListener('submit', event =>
+  salvarForm(event, 'cartorios', form => ({
+    nome: form.elements.nome.value.trim(), id: form.elements.namedItem('id').value.trim(),
+    estado: form.elements.estado.value, pastas: marcados(form)('pastas'), assistentes: marcados(form)('assistentes'),
+  }), event.target.dataset.uid)
+);
+
 async function excluir(tipo, id) {
   if (!confirm('Excluir este item?')) return;
   try {
@@ -311,7 +338,8 @@ function renderDashboard() {
               <span class="badge gray">${assist.length} assistente(s)</span>
             </div>
           </div>
-          <button class="icon-btn" title="Excluir cartório" data-del="cartorios" data-id="${c.uid}">✕</button>
+          <div class="registry-actions"><button type="button" class="btn-ghost" data-edit-cartorio="${c.uid}" aria-label="Editar cartório ${esc(c.nome)}">Editar</button>
+          <button class="icon-btn" title="Excluir cartório" data-del="cartorios" data-id="${c.uid}">✕</button></div>
         </div>
         ${pastas.length ? `<div class="sub"><h4>Pastas</h4>${pastas.map(p => {
           const as = p.assistentes.map(id => byUid(db.assistentes, id)).filter(Boolean);
