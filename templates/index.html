@@ -11,13 +11,12 @@
   <div hidden>{% csrf_token %}</div>
   <p id="connection-status" class="connection-status" role="status" hidden></p>
   <header class="topbar">
-    <div class="brand"><span class="dot"></span> STATUS-DASHBOARD</div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">S</span><span>STATUS<span class="brand-secondary"> / dashboard</span></span></div>
     <div class="topbar-actions">
     <nav class="tabs">
       <button class="tab active" data-tab="inicio">Início</button>
       <button class="tab" data-tab="dashboard">Dashboard</button>
     </nav>
-    {% if user.is_staff %}<a class="btn-ghost" href="/admin/">Administração</a>{% endif %}
     <button id="import-legacy" class="btn-ghost" type="button" hidden>Importar dados locais</button>
     <button id="logout" class="btn-ghost" type="button">Sair</button>
     </div>
@@ -27,23 +26,25 @@
     <!-- ABA PRINCIPAL -->
     <section id="tab-inicio" class="tab-panel active">
       <div class="hero">
-        <h1>Gerenciar Cartórios</h1>
-        <p class="muted">Crie cartórios, pastas e assistentes. Pastas e assistentes são opcionais.</p>
+        <span class="eyebrow"><span class="dot"></span> SEU ESPAÇO DE TRABALHO</span>
+        <h1>Uma visão clara.<br><span>Uma gestão conectada.</span></h1>
+        <p class="muted">Organize seus cartórios, conecte assistentes e acompanhe tudo em um só lugar.</p>
         <div class="actions">
-          <button class="btn-big" data-open="modal-cartorio">CRIAR CARTÓRIO</button>
-          <button class="btn-big" data-open="modal-pasta">CRIAR PASTA</button>
-          <button class="btn-big" data-open="modal-assistente">CRIAR ASSISTENTE</button>
+          <button class="btn-big" data-open="modal-cartorio"><span class="action-icon" aria-hidden="true">▦</span><strong>Criar cartório</strong><span class="action-description">O ponto de partida da sua operação.</span><span class="action-arrow" aria-hidden="true">↗</span></button>
+          <button class="btn-big" data-open="modal-pasta"><span class="action-icon" aria-hidden="true">▱</span><strong>Criar pasta</strong><span class="action-description">Cada documento no lugar certo.</span><span class="action-arrow" aria-hidden="true">↗</span></button>
+          <button class="btn-big" data-open="modal-assistente"><span class="action-icon" aria-hidden="true">✧</span><strong>Criar assistente</strong><span class="action-description">Inteligência para o seu dia a dia.</span><span class="action-arrow" aria-hidden="true">↗</span></button>
         </div>
       </div>
     </section>
 
     <!-- DASHBOARD -->
     <section id="tab-dashboard" class="tab-panel">
+      <div class="page-heading"><div><span class="eyebrow">VISÃO GERAL</span><h1>Sua operação, em foco.</h1><p class="muted">Cartórios, conexões e inteligência em um único painel.</p></div><span class="workspace-badge"><span class="dot"></span> Espaço compartilhado</span></div>
       <div class="kpis" id="kpis"></div>
 
       <div class="toolbar">
-        <input id="filtro-busca" type="search" placeholder="Buscar por nome ou ID...">
-        <select id="filtro-estado"><option value="">Todos os estados</option></select>
+        <input id="filtro-busca" type="search" aria-label="Buscar cartórios" placeholder="Buscar cartório por nome ou ID...">
+        <select id="filtro-estado" aria-label="Filtrar por estado"><option value="">Todos os estados</option></select>
       </div>
 
       <div class="grid-2">

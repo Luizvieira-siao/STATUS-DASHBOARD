@@ -10,10 +10,11 @@
 </head>
 <body class="login-page">
   <main class="login-shell">
-    <div class="brand"><span class="dot"></span> STATUS-DASHBOARD</div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">S</span><span>STATUS<span class="brand-secondary"> / dashboard</span></span></div>
     <section class="login-card" aria-labelledby="login-title">
-      <div class="login-symbol" aria-hidden="true">&#128274;</div>
-      <h1 id="login-title">Bem-vindo de volta</h1>
+      <div class="login-symbol" aria-hidden="true">↗</div>
+      <span class="eyebrow">SEU ESPAÇO DE TRABALHO</span>
+      <h1 id="login-title">Tudo começa aqui.</h1>
       <p class="muted">Entre para gerenciar seus cartórios, pastas e assistentes.</p>
       <form id="form-login" method="post" action="{% url 'login' %}">
         {% csrf_token %}
