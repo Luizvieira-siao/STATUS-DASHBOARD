@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Django / Python ${{ matrix.python }} / PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12', '3.14']
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: status_dashboard_ci
+          POSTGRES_USER: dashboard_ci
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dashboard_ci -d status_dashboard_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DJANGO_DEBUG: '1'
+      DJANGO_SECRET_KEY: ci-only-not-a-production-secret-0123456789-abcdefghijklmnopqrstuvwxyz
+      DATABASE_URL: postgresql://dashboard_ci:ci-only-password@127.0.0.1:5432/status_dashboard_ci
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,testserver
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip check
+      - name: Validate scripts and JavaScript
+        run: |
+          bash -n build.sh start.sh
+          node --check static/dashboard/app.js
+          node --check static/dashboard/login.js
+      - name: Check Django and migration consistency
+        run: |
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+      - name: Apply migrations to PostgreSQL
+        run: python manage.py migrate --noinput
+      - name: Collect static assets
+        run: python manage.py collectstatic --noinput
+      - name: Run tests on PostgreSQL
+        run: python manage.py test --noinput --verbosity 2
+      - name: Validate production security settings
+        env:
+          DJANGO_DEBUG: '0'
+          RENDER: 'true'
+          RENDER_EXTERNAL_HOSTNAME: ci-example.onrender.com
+        run: python manage.py check --deploy --fail-level WARNING

@@ -88,3 +88,24 @@ Após publicar, use o Shell de um serviço que ofereça esse recurso e execute `
 O banco remoto começa vazio. O SQLite local e seus usuários não são enviados automaticamente: migrar os dados existentes requer uma exportação/importação separada. Fazer deploy não apaga nem altera o banco local. Para uso contínuo, escolha um banco sem expiração e configure backups; o PostgreSQL gratuito do Render expira após 30 dias.
 
 Referências: https://render.com/docs/deploy-django e https://render.com/docs/free.
+
+## CI/CD: GitHub Actions e Render
+
+O workflow `.github/workflows/ci.yml` executa em pushes para `main`, pull requests destinados a `main` e manualmente em **Actions → CI → Run workflow**.
+
+A pipeline roda em Python 3.12 e 3.14 com um PostgreSQL 16 temporário e isolado. Verifica dependências, sintaxe JavaScript/Bash, configurações Django, migrações pendentes, aplicação das migrações, coleta de estáticos, testes de autenticação/CRUD/importação e configurações de segurança de produção. As credenciais no YAML são exclusivamente do banco descartável do CI; não há acesso ao banco do Render.
+
+Para ativar o deploy automático após os testes:
+
+1. Envie o workflow ao GitHub e confira se os dois jobs do **CI** ficam verdes em **Actions**.
+2. No Render, abra o Web Service → **Settings → Build & Deploy → Auto-Deploy** e selecione **After CI Checks Pass**. A branch deve ser `main`, e a integração GitHub precisa estar conectada (não apenas a URL pública do repositório).
+3. Mantenha **Build Command** `bash build.sh` e **Start Command** `bash start.sh`, além das variáveis de produção já cadastradas.
+4. Nos próximos pushes/merges em `main`, o Render aguardará os checks e iniciará o deploy se todos passarem. Pull requests executam testes; não publicam produção por este fluxo.
+
+Não configure um deploy hook em paralelo: a integração nativa já aciona a publicação. A opção **On Commit** publica antes do resultado do CI, portanto substitua-a por **After CI Checks Pass**. Esse ajuste é feito no painel e não é aplicado automaticamente por este arquivo.
+
+Recomenda-se também uma regra de proteção de `main` no GitHub que exija os dois checks **Django / Python 3.12 / PostgreSQL** e **Django / Python 3.14 / PostgreSQL** antes de permitir merge. Os checks só aparecem para seleção após a primeira execução. Essa proteção é uma configuração separada do repositório.
+
+Um CI verde confirma os testes; o resultado do deploy fica em **Render → Events/Deploys**, onde devem ser conferidos migrações, inicialização e acesso ao site. O CI não confirma sozinho que a aplicação foi publicada.
+
+Referência: https://render.com/docs/deploys#integrating-with-ci.
