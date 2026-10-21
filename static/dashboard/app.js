@@ -130,10 +130,25 @@ document.querySelectorAll('[data-open]').forEach(btn => {
     const erro = form.querySelector('.erro');
     if (erro) erro.hidden = true;
     preencherSelects(form);
+    if (form.id === 'form-pasta') filtrarAssistentesPasta();
     dlg.showModal();
   });
 });
 document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => btn.closest('dialog').close()));
+
+// Oculta opções sem recriá-las para preservar as seleções durante a busca.
+function filtrarAssistentesPasta() {
+  const normalizar = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const busca = normalizar(document.getElementById('busca-assistentes-pasta').value.trim());
+  const opcoes = [...document.querySelectorAll('#assistentes-pasta label')];
+  let visiveis = 0;
+  opcoes.forEach(opcao => {
+    opcao.hidden = !normalizar(opcao.textContent).includes(busca);
+    if (!opcao.hidden) visiveis++;
+  });
+  document.getElementById('busca-assistentes-vazio').hidden = !opcoes.length || visiveis > 0;
+}
+document.getElementById('busca-assistentes-pasta').addEventListener('input', filtrarAssistentesPasta);
 
 const marcados = form => box => [...form.querySelectorAll(`.checklist[data-source="${box}"] input:checked`)].map(i => i.value);
 

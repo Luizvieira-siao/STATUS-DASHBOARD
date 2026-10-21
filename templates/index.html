@@ -112,7 +112,11 @@
       </label>
       <fieldset>
         <legend>Assistentes (opcional)</legend>
-        <div class="checklist" data-source="assistentes"></div>
+        <label for="busca-assistentes-pasta" class="assistant-search-label">Buscar assistentes
+          <input id="busca-assistentes-pasta" type="search" placeholder="Buscar por nome ou LLM..." aria-controls="assistentes-pasta" autocomplete="off">
+        </label>
+        <div id="assistentes-pasta" class="checklist" data-source="assistentes"></div>
+        <p id="busca-assistentes-vazio" class="muted" role="status" hidden>Nenhum assistente corresponde à busca.</p>
       </fieldset>
       <div class="modal-actions">
         <button type="button" class="btn-ghost" data-close>Cancelar</button>
