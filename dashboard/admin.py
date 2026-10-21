@@ -9,21 +9,11 @@ class OwnedAdmin(admin.ModelAdmin):
     list_display = ['nome', 'owner']
     search_fields = ['nome', 'owner__username']
     list_filter = ['owner']
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        return qs if request.user.is_superuser else qs.filter(owner=request.user)
-    def get_exclude(self, request, obj=None):
-        return [] if request.user.is_superuser else ['owner']
+    readonly_fields = ['owner']
     def save_model(self, request, obj, form, change):
-        if not request.user.is_superuser:
+        if not change:
             obj.owner = request.user
         super().save_model(request, obj, form, change)
-    def formfield_for_manytomany(self, db_field, request, **kwargs):
-        # Relations always stay inside the record owner's workspace.
-        obj_id = request.resolver_match.kwargs.get('object_id')
-        owner = self.model.objects.filter(pk=obj_id).values_list('owner_id', flat=True).first() if obj_id else request.user.pk
-        kwargs['queryset'] = db_field.remote_field.model.objects.filter(owner_id=owner)
-        return super().formfield_for_manytomany(db_field, request, **kwargs)
 
 @admin.register(AccessEvent)
 class AccessEventAdmin(admin.ModelAdmin):

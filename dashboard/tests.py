@@ -19,7 +19,7 @@ class DashboardTests(TestCase):
         self.assertEqual(anonymous.get('/login/').status_code, 200)
         self.assertEqual(self.client.get('/').status_code, 200)
         self.assertEqual(self.client.get('/admin/').status_code, 302)
-    def test_crud_relations_and_tenant_isolation(self):
+    def test_crud_relations_are_shared_between_users(self):
         response = self.post('/api/items/assistentes/', {'nome': 'Assistente', 'llm': 'GPT'})
         self.assertEqual(response.status_code, 200)
         aid = response.json()['assistentes'][0]['uid']
@@ -31,10 +31,10 @@ class DashboardTests(TestCase):
         self.assertEqual(self.post('/api/items/cartorios/', {'nome': 'Outro', 'id': 'c1', 'estado': 'PE'}).status_code, 400)
         self.assertEqual(self.post('/api/items/cartorios/', {'nome': 'Outro', 'id': 'C2', 'estado': 'XX'}).status_code, 400)
         self.client.force_login(self.other)
-        self.assertEqual(self.client.get('/api/state/').json()['cartorios'], [])
-        self.assertEqual(self.client.delete('/api/items/assistentes/'+aid+'/').status_code, 404)
-        self.assertEqual(self.post('/api/items/pastas/', {'nome': 'Intrusa', 'assistentes': [aid]}).status_code, 400)
-        self.assertFalse(Pasta.objects.filter(owner=self.other).exists())
+        self.assertEqual(len(self.client.get('/api/state/').json()['cartorios']), 1)
+        self.assertEqual(self.post('/api/items/assistentes/', {'nome': 'Compartilhado', 'llm': 'GPT'}).status_code, 200)
+        self.assertEqual(self.post('/api/items/pastas/', {'nome': 'Compartilhada', 'assistentes': [aid]}).status_code, 200)
+        self.assertTrue(Pasta.objects.filter(owner=self.other).exists())
         self.client.force_login(self.user)
         self.assertEqual(self.client.delete('/api/items/assistentes/'+aid+'/').status_code, 200)
         self.assertEqual(Pasta.objects.get(pk=pid).assistentes.count(), 0)
@@ -63,6 +63,7 @@ class DashboardTests(TestCase):
         payload = {'assistentes': [{'uid': 'a1', 'nome': 'Legado', 'llm': 'GPT'}], 'pastas': [{'uid': 'p1', 'nome': 'Pasta', 'assistentes': ['a1']}], 'cartorios': [{'uid': 'c1', 'nome': 'Cartório', 'id': '001', 'estado': 'PE', 'pastas': ['p1'], 'assistentes': ['a1']}]}
         self.assertEqual(self.post('/api/import/', payload).status_code, 200)
         self.assertEqual(Cartorio.objects.get().pastas.get().assistentes.get().nome, 'Legado')
+        self.client.force_login(self.other)
         self.assertEqual(self.post('/api/import/', payload).status_code, 409)
     def test_invalid_import_rolls_back(self):
         payload = {'assistentes': [{'uid': 'a1', 'nome': 'Teste', 'llm': 'GPT'}], 'pastas': [{'uid': 'p1', 'nome': 'Pasta', 'assistentes': ['missing']}], 'cartorios': []}
@@ -92,7 +93,7 @@ class DashboardTests(TestCase):
         self.assertContains(page, 'Claude Opus 4.6')
         self.assertContains(page, 'lista-assistentes')
 
-    def test_edit_assistant_enforces_owner_validation_and_csrf(self):
+    def test_edit_assistant_is_shared_and_enforces_validation_and_csrf(self):
         assistant = Assistente.objects.create(owner=self.user, nome='Original', llm='GPT')
         path = f'/api/items/assistentes/{assistant.pk}/'
         for payload in [{'nome': ' ', 'llm': 'GPT'}, {'nome': 'Alterado', 'llm': 'x' * 101}]:
@@ -101,7 +102,7 @@ class DashboardTests(TestCase):
             assistant.refresh_from_db()
             self.assertEqual(assistant.nome, 'Original')
         self.client.force_login(self.other)
-        self.assertEqual(self.client.patch(path, data='{"nome":"Intruso","llm":"GPT"}', content_type='application/json').status_code, 404)
+        self.assertEqual(self.client.patch(path, data='{"nome":"Intruso","llm":"GPT"}', content_type='application/json').status_code, 200)
         secure_client = Client(enforce_csrf_checks=True)
         secure_client.force_login(self.user)
         self.assertEqual(secure_client.patch(path, data='{"nome":"Alterado","llm":"GPT"}', content_type='application/json').status_code, 403)

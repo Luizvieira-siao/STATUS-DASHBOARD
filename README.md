@@ -32,9 +32,9 @@ Se a distribuição não tiver `venv`/`ensurepip`, instale o pacote de venv corr
 
 ## Dados e usuários
 
-Cartórios, pastas e assistentes agora ficam no banco `db.sqlite3`, separados por usuário. A equipe pode cadastrar contas pelo admin, com grupos e permissões. Usuários ativos podem gerenciar seus próprios registros pelo dashboard; permissões de modelos controlam o acesso ao admin. Superusuários administram os registros de todas as contas. Para manter os vínculos consistentes, não transfira registros relacionados entre responsáveis pelo admin.
+Cartórios, pastas e assistentes são compartilhados entre todos os usuários autenticados: todos podem visualizar, criar, editar assistentes e excluir registros pelo dashboard. O campo responsável registra quem criou cada item e não restringe seu acesso. Os dados existentes de todas as contas são preservados e passam a aparecer juntos. O acesso ao admin continua dependendo de staff e permissões; o histórico de acessos continua exclusivo dos superusuários.
 
-Os dados antigos do `localStorage` não podem ser lidos pelo servidor. Entre com a conta que receberá os registros e clique em **Importar dados locais**. O botão aparece quando existem dados antigos no mesmo navegador e na mesma origem (protocolo, host e porta). A importação exige uma conta sem registros, preserva os vínculos e mantém a cópia local. Se usava outro host/porta, acesse o Django na mesma origem para que o navegador disponibilize os dados antigos. Dados abertos anteriormente via `file://` precisam ser exportados daquele contexto; não ficam acessíveis automaticamente no HTTP.
+Os dados antigos do `localStorage` não podem ser lidos pelo servidor. Entre com uma conta autorizada e clique em **Importar dados locais**. O botão aparece quando existem dados antigos no mesmo navegador e na mesma origem (protocolo, host e porta). A importação exige que o painel compartilhado esteja vazio, preserva os vínculos e mantém a cópia local. Se usava outro host/porta, acesse o Django na mesma origem para que o navegador disponibilize os dados antigos. Dados abertos anteriormente via `file://` precisam ser exportados daquele contexto; não ficam acessíveis automaticamente no HTTP.
 
 Faça backup de `db.sqlite3` e da chave secreta. A chave de desenvolvimento é gerada em `.django-secret-key`, com permissão restrita; em produção, forneça `DJANGO_SECRET_KEY` no ambiente.
 
@@ -62,7 +62,7 @@ python manage.py check
 python manage.py test
 ```
 
-Os testes cobrem autenticação, CSRF, isolamento por usuário, CRUD/vínculos, auditoria, bloqueio de tentativas e importação com reversão de falhas.
+Os testes cobrem autenticação, CSRF, compartilhamento entre usuários autenticados, CRUD/vínculos, auditoria, bloqueio de tentativas e importação com reversão de falhas.
 
 ## Deploy no Render
 

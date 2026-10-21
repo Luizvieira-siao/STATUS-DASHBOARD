@@ -19,11 +19,11 @@ def index(request):
 def session(request):
     return JsonResponse({}, status=200 if request.user.is_authenticated else 401)
 
-def snapshot(user):
+def snapshot():
     return {
-        'cartorios': [dict(uid=str(c.pk), id=c.id, nome=c.nome, estado=c.estado, pastas=[str(x.pk) for x in c.pastas.all()], assistentes=[str(x.pk) for x in c.assistentes.all()]) for c in Cartorio.objects.filter(owner=user).prefetch_related('pastas', 'assistentes')],
-        'pastas': [dict(uid=str(p.pk), nome=p.nome, assistentes=[str(x.pk) for x in p.assistentes.all()]) for p in Pasta.objects.filter(owner=user).prefetch_related('assistentes')],
-        'assistentes': [dict(uid=str(a.pk), nome=a.nome, llm=a.llm) for a in Assistente.objects.filter(owner=user)],
+        'cartorios': [dict(uid=str(c.pk), id=c.id, nome=c.nome, estado=c.estado, pastas=[str(x.pk) for x in c.pastas.all()], assistentes=[str(x.pk) for x in c.assistentes.all()]) for c in Cartorio.objects.all().prefetch_related('pastas', 'assistentes')],
+        'pastas': [dict(uid=str(p.pk), nome=p.nome, assistentes=[str(x.pk) for x in p.assistentes.all()]) for p in Pasta.objects.all().prefetch_related('assistentes')],
+        'assistentes': [dict(uid=str(a.pk), nome=a.nome, llm=a.llm) for a in Assistente.objects.all()],
     }
 
 def read_json(request):
@@ -37,12 +37,12 @@ def text(data, key):
         raise ValueError(f'Preencha {key}.')
     return value.strip()
 
-def related(model, user, ids):
+def related(model, ids):
     if not isinstance(ids, list) or len(ids) > 5000:
         raise ValueError('Vínculos inválidos.')
-    objects = list(model.objects.filter(owner=user, pk__in=ids))
+    objects = list(model.objects.filter(pk__in=ids))
     if len(objects) != len(set(ids)):
-        raise ValueError('Um dos vínculos não existe ou pertence a outro usuário.')
+        raise ValueError('Um dos vínculos não existe.')
     return objects
 
 def create(user, kind, data):
@@ -54,20 +54,20 @@ def create(user, kind, data):
     obj.full_clean()
     obj.save()
     if kind in ['cartorios', 'pastas']:
-        obj.assistentes.set(related(Assistente, user, data.get('assistentes', [])))
+        obj.assistentes.set(related(Assistente, data.get('assistentes', [])))
     if kind == 'cartorios':
-        obj.pastas.set(related(Pasta, user, data.get('pastas', [])))
+        obj.pastas.set(related(Pasta, data.get('pastas', [])))
     if kind in ['pastas', 'assistentes'] and data.get('cartorio'):
-        cart = related(Cartorio, user, [data['cartorio']])[0]
+        cart = related(Cartorio, [data['cartorio']])[0]
         getattr(cart, kind).add(obj)
     if kind == 'assistentes' and data.get('pasta'):
-        related(Pasta, user, [data['pasta']])[0].assistentes.add(obj)
+        related(Pasta, [data['pasta']])[0].assistentes.add(obj)
     return obj
 
 @login_required
 @require_GET
 def state(request):
-    return JsonResponse(snapshot(request.user))
+    return JsonResponse(snapshot())
 
 @login_required
 @require_http_methods(['POST', 'DELETE', 'PATCH'])
@@ -78,7 +78,7 @@ def items(request, kind, uid=None):
             if request.method == 'PATCH':
                 if kind != 'assistentes' or uid is None:
                     return JsonResponse({'error': 'Rota inválida.'}, status=405)
-                obj = Assistente.objects.select_for_update().filter(owner=request.user, pk=uid).first()
+                obj = Assistente.objects.select_for_update().filter(pk=uid).first()
                 if obj is None:
                     return JsonResponse({'error': 'Assistente não encontrado.'}, status=404)
                 data = read_json(request)
@@ -87,13 +87,13 @@ def items(request, kind, uid=None):
                 obj.full_clean()
                 obj.save(update_fields=['nome', 'llm'])
             elif request.method == 'DELETE':
-                obj = MODELS[kind].objects.filter(owner=request.user, pk=uid).first()
+                obj = MODELS[kind].objects.filter(pk=uid).first()
                 if not obj: return JsonResponse({'error': 'Registro não encontrado.'}, status=404)
                 obj.delete()
             else:
                 if uid: return JsonResponse({'error': 'Rota inválida.'}, status=405)
                 create(request.user, kind, read_json(request))
-        return JsonResponse(snapshot(request.user))
+        return JsonResponse(snapshot())
     except (ValueError, TypeError, ValidationError, IntegrityError) as error:
         message = ' '.join(error.messages) if isinstance(error, ValidationError) else 'Dados inválidos ou identificador já existente.'
         return JsonResponse({'error': message}, status=400)
@@ -106,10 +106,10 @@ def import_legacy(request):
         if any(not isinstance(data.get(k), list) or len(data[k]) > 5000 for k in MODELS):
             raise ValueError('Dados inválidos.')
         with transaction.atomic():
-            # Lock the owner to serialize simultaneous imports.
+            # Use the same lock for every user importing into the shared dashboard.
             from django.contrib.auth import get_user_model
-            get_user_model().objects.select_for_update().get(pk=request.user.pk)
-            if any(model.objects.filter(owner=request.user).exists() for model in MODELS.values()):
+            get_user_model().objects.order_by('pk').select_for_update().first()
+            if any(model.objects.exists() for model in MODELS.values()):
                 return JsonResponse({'error': 'A importação exige um painel vazio para evitar duplicações.'}, status=409)
             maps = {k: {} for k in MODELS}
             for kind in ['assistentes', 'pastas', 'cartorios']:
@@ -121,6 +121,6 @@ def import_legacy(request):
                         if relation in item:
                             item[relation] = [str(maps[relation][old].pk) for old in item[relation]]
                     maps[kind][entry['uid']] = create(request.user, kind, item)
-        return JsonResponse(snapshot(request.user))
+        return JsonResponse(snapshot())
     except (ValueError, TypeError, KeyError, ValidationError, IntegrityError):
         return JsonResponse({'error': 'Não foi possível importar. Verifique os registros e vínculos locais.'}, status=400)
