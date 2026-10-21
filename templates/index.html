@@ -58,6 +58,11 @@
               <button type="button" class="list-switch-button" data-list="assistentes" aria-pressed="false" aria-controls="lista-assistentes">Assistentes</button>
               <button type="button" class="list-switch-button active" data-list="pastas" aria-pressed="true" aria-controls="lista-pastas">Pastas</button>
             </div>
+            <label class="dashboard-list-search" for="busca-lista-dashboard">
+              Buscar na lista
+              <input id="busca-lista-dashboard" type="search" placeholder="Buscar pasta por nome..." aria-controls="lista-pastas lista-assistentes" autocomplete="off">
+            </label>
+            <p id="busca-lista-sem-resultados" class="muted" role="status" hidden></p>
             <div id="lista-assistentes" hidden></div>
             <div id="lista-pastas"></div>
           </div>

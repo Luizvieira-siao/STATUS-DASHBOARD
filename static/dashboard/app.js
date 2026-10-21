@@ -98,8 +98,27 @@ document.querySelectorAll('[data-list]').forEach(button => {
       option.setAttribute('aria-pressed', String(selected));
       document.getElementById('lista-' + option.dataset.list).hidden = !selected;
     });
+    filtrarListaDashboard();
   });
 });
+
+function filtrarListaDashboard() {
+  const input = document.getElementById('busca-lista-dashboard');
+  const normalizar = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const busca = normalizar(input.value.trim());
+  const tipo = document.querySelector('[data-list].active').dataset.list;
+  input.placeholder = tipo === 'pastas' ? 'Buscar pasta por nome...' : 'Buscar assistente por nome ou LLM...';
+  ['pastas', 'assistentes'].forEach(lista => {
+    document.querySelectorAll('#lista-' + lista + ' [data-list-search]').forEach(item => {
+      item.hidden = !normalizar(item.dataset.listSearch).includes(busca);
+    });
+  });
+  const opcoes = [...document.querySelectorAll('#lista-' + tipo + ' [data-list-search]')];
+  const mensagem = document.getElementById('busca-lista-sem-resultados');
+  mensagem.hidden = !opcoes.length || opcoes.some(item => !item.hidden);
+  mensagem.textContent = tipo === 'pastas' ? 'Nenhuma pasta corresponde à busca.' : 'Nenhum assistente corresponde à busca.';
+}
+document.getElementById('busca-lista-dashboard').addEventListener('input', filtrarListaDashboard);
 
 // ===== Modais =====
 function preencherSelects(form) {
@@ -305,7 +324,7 @@ function renderDashboard() {
   }).join('') : `<div class="empty">${db.cartorios.length ? 'Nenhum cartório corresponde ao filtro.' : 'Nenhum cartório criado ainda. Vá em "Início" e clique em CRIAR CARTÓRIO.'}</div>`;
 
   document.getElementById('lista-assistentes').innerHTML = db.assistentes.length
-    ? db.assistentes.map(a => `<div class="assistant-item">
+    ? db.assistentes.map(a => `<div class="assistant-item" data-list-search="${esc(a.nome + ' ' + a.llm)}">
         <div><strong>${esc(a.nome)}</strong><div class="muted">${esc(a.llm)}</div></div>
         <button type="button" class="btn-ghost" data-edit-assistente="${a.uid}" aria-label="Editar ${esc(a.nome)}">Editar</button>
       </div>`).join('')
@@ -314,7 +333,7 @@ function renderDashboard() {
   document.getElementById('lista-pastas').innerHTML = db.pastas.length
     ? db.pastas.map(p => {
         const assistentes = p.assistentes.map(id => byUid(db.assistentes, id)).filter(Boolean);
-        return `<div class="folder-row"><details class="folder-details">
+        return `<div class="folder-row" data-list-search="${esc(p.nome)}"><details class="folder-details">
           <summary><span class="folder-title">📁 ${esc(p.nome)}</span><span class="folder-count">${assistentes.length} assistente(s)</span></summary>
           <div class="folder-content">${assistentes.length
             ? `<div class="chips">${assistentes.map(chipAssist).join('')}</div>`
@@ -322,6 +341,8 @@ function renderDashboard() {
         </details><button type="button" class="btn-ghost folder-edit" data-edit-pasta="${p.uid}" aria-label="Editar pasta ${esc(p.nome)}">Editar</button></div>`;
       }).join('')
     : '<div class="empty">Nenhuma pasta criada ainda.</div>';
+
+  filtrarListaDashboard();
 
   // Gráficos
   const porLlm = {};

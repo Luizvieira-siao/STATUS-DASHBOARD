@@ -164,3 +164,7 @@ legend { color: var(--muted); font-size: 11px; padding: 0 7px; }
 .folder-row:last-child { border-bottom: 0; }
 .folder-row .folder-details { flex: 1; min-width: 0; border-bottom: 0; }
 .folder-edit { margin-top: 12px; padding: 6px 10px; font-size: 11px; flex-shrink: 0; }
+
+.dashboard-list-search { margin-bottom: 12px; font-size: 11px; }
+.dashboard-list-search input { font-size: 12px; }
+#busca-lista-sem-resultados { font-size: 12px; padding: 12px 0; }
