@@ -53,7 +53,7 @@ python manage.py check --deploy
  gunicorn config.wsgi:application --bind 127.0.0.1:8000
 ```
 
-WhiteNoise serve os arquivos estáticos coletados. SQLite atende o uso inicial; para mais concorrência, configure PostgreSQL. Mantenha as dependências atualizadas e defina retenção e acesso adequados para os registros de IP e navegador.
+WhiteNoise serve os arquivos estáticos coletados. SQLite é usado somente no desenvolvimento sem `DATABASE_URL`; em produção, PostgreSQL é obrigatório. Mantenha as dependências atualizadas e defina retenção e acesso adequados para os registros de IP e navegador.
 
 ## Verificação
 
@@ -63,3 +63,28 @@ python manage.py test
 ```
 
 Os testes cobrem autenticação, CSRF, isolamento por usuário, CRUD/vínculos, auditoria, bloqueio de tentativas e importação com reversão de falhas.
+
+## Deploy no Render
+
+1. Envie o código ao GitHub e crie um PostgreSQL no Render, na mesma região do Web Service.
+2. Crie **New → Web Service**, selecione o repositório e o ambiente Python.
+3. Use **Build Command:** `bash build.sh` e **Start Command:** `bash start.sh`.
+4. Em **Environment**, cadastre:
+
+| Variável | Valor |
+| --- | --- |
+| `DJANGO_DEBUG` | `0` |
+| `DJANGO_SECRET_KEY` | Chave aleatória gerada no painel, mantida entre deploys |
+| `DATABASE_URL` | Internal Database URL do PostgreSQL |
+| `DJANGO_ALLOWED_HOSTS` | Domínio personalizado, se houver, sem protocolo |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | Origem personalizada, se houver, com `https://` |
+
+O hostname `onrender.com` é incluído automaticamente a partir de `RENDER_EXTERNAL_HOSTNAME`. O Render define `RENDER=true`; nesse ambiente, o projeto reconhece HTTPS pelo cabeçalho do proxy e desativa DEBUG por padrão. Fora do Render, habilite `DJANGO_TRUST_PROXY=1` apenas quando o proxy confiável remover/sobrescrever o cabeçalho de protocolo e o backend não aceitar tráfego direto.
+
+O build coleta os estáticos e verifica as configurações de segurança. A inicialização aplica migrações antes de iniciar o Gunicorn. Para várias instâncias, mova `python manage.py migrate --noinput` para uma etapa única de pre-deploy, se disponível no plano.
+
+Após publicar, use o Shell de um serviço que ofereça esse recurso e execute `python manage.py createsuperuser`. Não use `bootstrap_admin` em filesystem temporário: ele salva a senha em arquivo local. Não há criação de usuário com senha padrão no deploy.
+
+O banco remoto começa vazio. O SQLite local e seus usuários não são enviados automaticamente: migrar os dados existentes requer uma exportação/importação separada. Fazer deploy não apaga nem altera o banco local. Para uso contínuo, escolha um banco sem expiração e configure backups; o PostgreSQL gratuito do Render expira após 30 dias.
+
+Referências: https://render.com/docs/deploy-django e https://render.com/docs/free.

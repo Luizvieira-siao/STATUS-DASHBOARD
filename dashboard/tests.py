@@ -1,6 +1,6 @@
 import json
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase, override_settings
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 from .models import AccessEvent, Assistente, Cartorio, Pasta, LoginAttempt
 
 @override_settings(STORAGES={'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'}, 'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'}})
@@ -73,3 +73,48 @@ class DashboardTests(TestCase):
         self.user.save()
         for url in ['/admin/', '/admin/dashboard/accessevent/', '/admin/dashboard/cartorio/', '/admin/dashboard/cartorio/add/']:
             self.assertEqual(self.client.get(url).status_code, 200)
+
+class DeploymentSettingsTests(SimpleTestCase):
+    def settings_for(self, **environment):
+        import os
+        import runpy
+        from pathlib import Path
+        from unittest.mock import patch
+        from django.conf import settings
+        with patch.dict(os.environ, environment, clear=True):
+            return runpy.run_path(str(Path(settings.BASE_DIR) / 'config/settings.py'))
+
+    def test_local_keeps_sqlite_without_trusting_proxy(self):
+        config = self.settings_for(DJANGO_SECRET_KEY='test-key')
+        self.assertTrue(config['DEBUG'])
+        self.assertEqual(config['DATABASES']['default']['ENGINE'], 'django.db.backends.sqlite3')
+        self.assertNotIn('SECURE_PROXY_SSL_HEADER', config)
+
+    def test_render_enforces_postgres_https_and_exact_hostname(self):
+        config = self.settings_for(RENDER='true', RENDER_EXTERNAL_HOSTNAME='example.onrender.com',
+            DJANGO_SECRET_KEY='test-key', DATABASE_URL='postgresql://user:password@db.example:5432/dashboard')
+        self.assertFalse(config['DEBUG'])
+        database = config['DATABASES']['default']
+        self.assertEqual(database['ENGINE'], 'django.db.backends.postgresql')
+        self.assertEqual(database['NAME'], 'dashboard')
+        self.assertEqual(database['OPTIONS']['sslmode'], 'require')
+        self.assertTrue(database['CONN_HEALTH_CHECKS'])
+        self.assertIn('example.onrender.com', config['ALLOWED_HOSTS'])
+        self.assertIn('https://example.onrender.com', config['CSRF_TRUSTED_ORIGINS'])
+        self.assertEqual(config['SECURE_PROXY_SSL_HEADER'], ('HTTP_X_FORWARDED_PROTO', 'https'))
+        from django.test import RequestFactory, override_settings
+        with override_settings(SECURE_PROXY_SSL_HEADER=config['SECURE_PROXY_SSL_HEADER']):
+            request = RequestFactory().get('/', HTTP_X_FORWARDED_PROTO='https')
+            self.assertTrue(request.is_secure())
+
+    def test_production_requires_database_and_secret(self):
+        from django.core.exceptions import ImproperlyConfigured
+        with self.assertRaisesMessage(ImproperlyConfigured, 'DJANGO_SECRET_KEY'):
+            self.settings_for(RENDER='true')
+        with self.assertRaisesMessage(ImproperlyConfigured, 'DATABASE_URL'):
+            self.settings_for(DJANGO_DEBUG='0', DJANGO_SECRET_KEY='test-key')
+
+    def test_rejects_non_postgresql_url(self):
+        from django.core.exceptions import ImproperlyConfigured
+        with self.assertRaisesMessage(ImproperlyConfigured, 'PostgreSQL'):
+            self.settings_for(DJANGO_SECRET_KEY='test-key', DATABASE_URL='sqlite:///db.sqlite3')
