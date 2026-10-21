@@ -134,6 +134,36 @@ class DashboardTests(TestCase):
         self.assertEqual(self.client.delete(f'/api/cartorios/{first.pk}/pastas/{uuid.uuid4()}/').status_code, 404)
         self.assertEqual(self.client.delete(f'/api/cartorios/{uuid.uuid4()}/pastas/{folder.pk}/').status_code, 404)
 
+    def test_edit_folder_updates_assistants_and_preserves_registry_links(self):
+        folder = Pasta.objects.create(owner=self.user, nome='Antiga')
+        old = Assistente.objects.create(owner=self.user, nome='Antigo', llm='GPT')
+        new = Assistente.objects.create(owner=self.other, nome='Novo', llm='GPT')
+        folder.assistentes.add(old)
+        registry = Cartorio.objects.create(owner=self.user, nome='Cartório', id='FOLDER', estado='PE')
+        registry.pastas.add(folder)
+        self.client.force_login(self.other)
+        path = f'/api/items/pastas/{folder.pk}/'
+        response = self.client.patch(path, data=json.dumps({'nome': 'Atualizada', 'assistentes': [str(new.pk)]}), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        folder.refresh_from_db()
+        self.assertEqual(folder.nome, 'Atualizada')
+        self.assertEqual(list(folder.assistentes.all()), [new])
+        self.assertTrue(registry.pastas.filter(pk=folder.pk).exists())
+        self.assertTrue(Assistente.objects.filter(pk=old.pk).exists())
+        import uuid
+        response = self.client.patch(path, data=json.dumps({'nome': 'Inválida', 'assistentes': [str(uuid.uuid4())]}), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        folder.refresh_from_db()
+        self.assertEqual(folder.nome, 'Atualizada')
+        self.assertEqual(list(folder.assistentes.all()), [new])
+        self.assertEqual(self.client.patch(path, data='{"nome":" "}', content_type='application/json').status_code, 400)
+        secure = Client(enforce_csrf_checks=True)
+        secure.force_login(self.user)
+        self.assertEqual(secure.patch(path, data='{}', content_type='application/json').status_code, 403)
+        self.assertEqual(Client().patch(path, data='{}', content_type='application/json').status_code, 302)
+        self.assertEqual(self.client.patch(path, data='{"nome":"Atualizada","assistentes":[]}', content_type='application/json').status_code, 200)
+        self.assertFalse(folder.assistentes.exists())
+
 class DeploymentSettingsTests(SimpleTestCase):
     def settings_for(self, **environment):
         import os

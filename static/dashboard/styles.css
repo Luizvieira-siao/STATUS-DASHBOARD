@@ -159,3 +159,8 @@ legend { color: var(--muted); font-size: 11px; padding: 0 7px; }
 .folder-count { color: var(--muted); font-size: 10px; flex-shrink: 0; }
 .folder-content { padding: 0 0 16px 20px; font-size: 12px; }
 .folder-content .chips { margin-top: 0; }
+
+.folder-row { display: flex; align-items: flex-start; gap: 10px; border-bottom: 1px solid var(--border); }
+.folder-row:last-child { border-bottom: 0; }
+.folder-row .folder-details { flex: 1; min-width: 0; border-bottom: 0; }
+.folder-edit { margin-top: 12px; padding: 6px 10px; font-size: 11px; flex-shrink: 0; }

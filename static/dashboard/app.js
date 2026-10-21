@@ -53,7 +53,7 @@ async function salvarForm(event, kind, getData, editId = null) {
   try {
     updateState(await api('/api/items/' + kind + '/' + (editId ? editId + '/' : ''), editId ? 'PATCH' : 'POST', getData(form)));
     form.closest('dialog').close();
-    toast(editId ? 'Assistente atualizado!' : 'Registro criado!');
+    toast(editId ? 'Alterações salvas!' : 'Registro criado!');
   } catch (error) {
     let message = form.querySelector('.erro');
     if (!message) {
@@ -183,6 +183,36 @@ document.getElementById('form-editar-assistente').addEventListener('submit', eve
   }), event.target.dataset.uid)
 );
 
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-edit-pasta]');
+  if (!button) return;
+  const pasta = byUid(db.pastas, button.dataset.editPasta);
+  if (!pasta) return;
+  const form = document.getElementById('form-editar-pasta');
+  form.reset();
+  form.dataset.uid = pasta.uid;
+  form.elements.nome.value = pasta.nome;
+  form.querySelector('.erro').hidden = true;
+  document.getElementById('busca-editar-vazio').hidden = true;
+  preencherSelects(form);
+  form.querySelectorAll('.checklist input').forEach(input => {
+    input.checked = pasta.assistentes.includes(input.value);
+  });
+  form.closest('dialog').showModal();
+});
+document.getElementById('busca-editar-pasta').addEventListener('input', event => {
+  const normalizar = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const busca = normalizar(event.target.value.trim());
+  const opcoes = [...document.querySelectorAll('#assistentes-editar-pasta label')];
+  opcoes.forEach(opcao => { opcao.hidden = !normalizar(opcao.textContent).includes(busca); });
+  document.getElementById('busca-editar-vazio').hidden = !opcoes.length || opcoes.some(opcao => !opcao.hidden);
+});
+document.getElementById('form-editar-pasta').addEventListener('submit', event =>
+  salvarForm(event, 'pastas', form => ({
+    nome: form.elements.nome.value.trim(), assistentes: marcados(form)('assistentes'),
+  }), event.target.dataset.uid)
+);
+
 async function excluir(tipo, id) {
   if (!confirm('Excluir este item?')) return;
   try {
@@ -284,12 +314,12 @@ function renderDashboard() {
   document.getElementById('lista-pastas').innerHTML = db.pastas.length
     ? db.pastas.map(p => {
         const assistentes = p.assistentes.map(id => byUid(db.assistentes, id)).filter(Boolean);
-        return `<details class="folder-details">
+        return `<div class="folder-row"><details class="folder-details">
           <summary><span class="folder-title">📁 ${esc(p.nome)}</span><span class="folder-count">${assistentes.length} assistente(s)</span></summary>
           <div class="folder-content">${assistentes.length
             ? `<div class="chips">${assistentes.map(chipAssist).join('')}</div>`
             : '<p class="muted">Nenhum assistente vinculado.</p>'}</div>
-        </details>`;
+        </details><button type="button" class="btn-ghost folder-edit" data-edit-pasta="${p.uid}" aria-label="Editar pasta ${esc(p.nome)}">Editar</button></div>`;
       }).join('')
     : '<div class="empty">Nenhuma pasta criada ainda.</div>';
 

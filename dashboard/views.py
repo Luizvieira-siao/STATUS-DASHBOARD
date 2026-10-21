@@ -76,16 +76,19 @@ def items(request, kind, uid=None):
     try:
         with transaction.atomic():
             if request.method == 'PATCH':
-                if kind != 'assistentes' or uid is None:
+                if kind not in ['assistentes', 'pastas'] or uid is None:
                     return JsonResponse({'error': 'Rota inválida.'}, status=405)
-                obj = Assistente.objects.select_for_update().filter(pk=uid).first()
+                obj = MODELS[kind].objects.select_for_update().filter(pk=uid).first()
                 if obj is None:
-                    return JsonResponse({'error': 'Assistente não encontrado.'}, status=404)
+                    return JsonResponse({'error': 'Registro não encontrado.'}, status=404)
                 data = read_json(request)
                 obj.nome = text(data, 'nome')
-                obj.llm = text(data, 'llm')
+                if kind == 'assistentes':
+                    obj.llm = text(data, 'llm')
                 obj.full_clean()
-                obj.save(update_fields=['nome', 'llm'])
+                obj.save(update_fields=['nome', 'llm'] if kind == 'assistentes' else ['nome'])
+                if kind == 'pastas' and 'assistentes' in data:
+                    obj.assistentes.set(related(Assistente, data['assistentes']))
             elif request.method == 'DELETE':
                 obj = MODELS[kind].objects.filter(pk=uid).first()
                 if not obj: return JsonResponse({'error': 'Registro não encontrado.'}, status=404)

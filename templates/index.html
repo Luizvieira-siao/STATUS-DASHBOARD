@@ -163,6 +163,25 @@
     </form>
   </dialog>
 
+  <dialog id="modal-editar-pasta" class="modal" aria-labelledby="titulo-editar-pasta">
+    <form method="dialog" id="form-editar-pasta">
+      <h2 id="titulo-editar-pasta">Editar Pasta</h2>
+      <label>Nome da pasta *<input name="nome" required maxlength="200"></label>
+      <fieldset>
+        <legend>Assistentes (opcional)</legend>
+        <label>Buscar assistentes<input id="busca-editar-pasta" type="search" placeholder="Buscar por nome ou LLM..." aria-controls="assistentes-editar-pasta" autocomplete="off"></label>
+        <div id="assistentes-editar-pasta" class="checklist" data-source="assistentes"></div>
+        <p id="busca-editar-vazio" class="muted" role="status" hidden>Nenhum assistente corresponde à busca.</p>
+      </fieldset>
+      <p class="muted">Os vínculos com cartórios serão mantidos.</p>
+      <p class="erro" role="alert" hidden></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn">Salvar alterações</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" hidden></div>
   <script src="{% static 'dashboard/app.js' %}"></script>
 </body>
