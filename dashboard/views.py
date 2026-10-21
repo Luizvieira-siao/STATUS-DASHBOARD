@@ -70,12 +70,23 @@ def state(request):
     return JsonResponse(snapshot(request.user))
 
 @login_required
-@require_http_methods(['POST', 'DELETE'])
+@require_http_methods(['POST', 'DELETE', 'PATCH'])
 def items(request, kind, uid=None):
     if kind not in MODELS: return JsonResponse({'error': 'Tipo inválido.'}, status=404)
     try:
         with transaction.atomic():
-            if request.method == 'DELETE':
+            if request.method == 'PATCH':
+                if kind != 'assistentes' or uid is None:
+                    return JsonResponse({'error': 'Rota inválida.'}, status=405)
+                obj = Assistente.objects.select_for_update().filter(owner=request.user, pk=uid).first()
+                if obj is None:
+                    return JsonResponse({'error': 'Assistente não encontrado.'}, status=404)
+                data = read_json(request)
+                obj.nome = text(data, 'nome')
+                obj.llm = text(data, 'llm')
+                obj.full_clean()
+                obj.save(update_fields=['nome', 'llm'])
+            elif request.method == 'DELETE':
                 obj = MODELS[kind].objects.filter(owner=request.user, pk=uid).first()
                 if not obj: return JsonResponse({'error': 'Registro não encontrado.'}, status=404)
                 obj.delete()

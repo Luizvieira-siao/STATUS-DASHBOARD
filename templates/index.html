@@ -53,6 +53,10 @@
         </div>
         <div class="side">
           <div class="panel">
+            <h2>Assistentes</h2>
+            <div id="lista-assistentes"></div>
+          </div>
+          <div class="panel">
             <h2>Assistentes por LLM</h2>
             <div id="chart-llm"></div>
           </div>
@@ -121,7 +125,7 @@
       <label>LLM *
         <input name="llm" required list="llms" placeholder="Ex.: Claude Opus 5.5">
         <datalist id="llms">
-          <option value="Claude Opus 5.5"><option value="Claude Sonnet 5.5"><option value="Claude Haiku 5.5">
+          <option value="Claude Opus 4.6"><option value="Claude Opus 5.5"><option value="Claude Sonnet 5.5"><option value="Claude Haiku 5.5">
           <option value="GPT"><option value="Gemini"><option value="Llama"><option value="Mistral">
         </datalist>
       </label>
@@ -132,6 +136,20 @@
       <div class="modal-actions">
         <button type="button" class="btn-ghost" data-close>Cancelar</button>
         <button type="submit" class="btn">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="modal-editar-assistente" class="modal" aria-labelledby="titulo-editar-assistente">
+    <form method="dialog" id="form-editar-assistente">
+      <h2 id="titulo-editar-assistente">Editar Assistente</h2>
+      <label>Nome *<input name="nome" required maxlength="200"></label>
+      <label>LLM *<input name="llm" required maxlength="100" list="llms"></label>
+      <p class="muted">Os vínculos com cartórios e pastas serão mantidos.</p>
+      <p class="erro" role="alert" hidden></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn">Salvar alterações</button>
       </div>
     </form>
   </dialog>

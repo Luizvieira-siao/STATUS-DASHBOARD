@@ -44,16 +44,16 @@ async function carregar() {
   }
 }
 
-async function salvarForm(event, kind, getData) {
+async function salvarForm(event, kind, getData, editId = null) {
   event.preventDefault();
   if (!loaded) return;
   const form = event.target;
   const button = form.querySelector('[type="submit"]');
   button.disabled = true;
   try {
-    updateState(await api('/api/items/' + kind + '/', 'POST', getData(form)));
+    updateState(await api('/api/items/' + kind + '/' + (editId ? editId + '/' : ''), editId ? 'PATCH' : 'POST', getData(form)));
     form.closest('dialog').close();
-    toast('Registro criado!');
+    toast(editId ? 'Assistente atualizado!' : 'Registro criado!');
   } catch (error) {
     let message = form.querySelector('.erro');
     if (!message) {
@@ -137,6 +137,25 @@ document.getElementById('form-assistente').addEventListener('submit', event => s
   nome: f.elements.nome.value.trim(), llm: f.elements.llm.value.trim(), cartorio: f.elements.cartorio.value, pasta: f.elements.pasta.value,
 })));
 
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-edit-assistente]');
+  if (!button) return;
+  const assistente = byUid(db.assistentes, button.dataset.editAssistente);
+  if (!assistente) return;
+  const form = document.getElementById('form-editar-assistente');
+  form.reset();
+  form.dataset.uid = assistente.uid;
+  form.elements.nome.value = assistente.nome;
+  form.elements.llm.value = assistente.llm;
+  form.querySelector('.erro').hidden = true;
+  form.closest('dialog').showModal();
+});
+document.getElementById('form-editar-assistente').addEventListener('submit', event =>
+  salvarForm(event, 'assistentes', form => ({
+    nome: form.elements.nome.value.trim(), llm: form.elements.llm.value.trim(),
+  }), event.target.dataset.uid)
+);
+
 async function excluir(tipo, id) {
   if (!confirm('Excluir este item?')) return;
   try {
@@ -212,6 +231,13 @@ function renderDashboard() {
         ${assist.length ? `<div class="sub"><h4>Assistentes do cartório</h4><div class="chips">${assist.map(chipAssist).join('')}</div></div>` : ''}
       </div>`;
   }).join('') : `<div class="empty">${db.cartorios.length ? 'Nenhum cartório corresponde ao filtro.' : 'Nenhum cartório criado ainda. Vá em "Início" e clique em CRIAR CARTÓRIO.'}</div>`;
+
+  document.getElementById('lista-assistentes').innerHTML = db.assistentes.length
+    ? db.assistentes.map(a => `<div class="assistant-item">
+        <div><strong>${esc(a.nome)}</strong><div class="muted">${esc(a.llm)}</div></div>
+        <button type="button" class="btn-ghost" data-edit-assistente="${a.uid}" aria-label="Editar ${esc(a.nome)}">Editar</button>
+      </div>`).join('')
+    : '<div class="empty">Nenhum assistente criado ainda.</div>';
 
   // Gráficos
   const porLlm = {};

@@ -150,3 +150,9 @@ button:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 
 .connection-status { margin: 0; padding: 12px 24px; background: var(--surface-2); color: var(--danger); }
 a.btn-ghost { text-decoration: none; }
+
+.assistant-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.assistant-item:last-child { border-bottom: 0; }
+.assistant-item > div { min-width: 0; overflow-wrap: anywhere; }
+.assistant-item .muted { font-size: 12px; margin-top: 4px; }
+.assistant-item button { flex-shrink: 0; }

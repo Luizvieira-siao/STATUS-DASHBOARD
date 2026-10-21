@@ -74,6 +74,39 @@ class DashboardTests(TestCase):
         for url in ['/admin/', '/admin/dashboard/accessevent/', '/admin/dashboard/cartorio/', '/admin/dashboard/cartorio/add/']:
             self.assertEqual(self.client.get(url).status_code, 200)
 
+    def test_edit_assistant_preserves_relations_and_refreshes_state(self):
+        assistant = Assistente.objects.create(owner=self.user, nome='Original', llm='GPT')
+        folder = Pasta.objects.create(owner=self.user, nome='Pasta')
+        registry = Cartorio.objects.create(owner=self.user, nome='Cartório', id='EDIT', estado='PE')
+        folder.assistentes.add(assistant)
+        registry.assistentes.add(assistant)
+        response = self.client.patch(f'/api/items/assistentes/{assistant.pk}/',
+            data=json.dumps({'nome': 'Atualizado', 'llm': 'Claude Opus 4.6'}), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        assistant.refresh_from_db()
+        self.assertEqual((assistant.nome, assistant.llm), ('Atualizado', 'Claude Opus 4.6'))
+        self.assertTrue(folder.assistentes.filter(pk=assistant.pk).exists())
+        self.assertTrue(registry.assistentes.filter(pk=assistant.pk).exists())
+        self.assertEqual(response.json()['assistentes'][0]['llm'], 'Claude Opus 4.6')
+        page = self.client.get('/')
+        self.assertContains(page, 'Claude Opus 4.6')
+        self.assertContains(page, 'lista-assistentes')
+
+    def test_edit_assistant_enforces_owner_validation_and_csrf(self):
+        assistant = Assistente.objects.create(owner=self.user, nome='Original', llm='GPT')
+        path = f'/api/items/assistentes/{assistant.pk}/'
+        for payload in [{'nome': ' ', 'llm': 'GPT'}, {'nome': 'Alterado', 'llm': 'x' * 101}]:
+            response = self.client.patch(path, data=json.dumps(payload), content_type='application/json')
+            self.assertEqual(response.status_code, 400)
+            assistant.refresh_from_db()
+            self.assertEqual(assistant.nome, 'Original')
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.patch(path, data='{"nome":"Intruso","llm":"GPT"}', content_type='application/json').status_code, 404)
+        secure_client = Client(enforce_csrf_checks=True)
+        secure_client.force_login(self.user)
+        self.assertEqual(secure_client.patch(path, data='{"nome":"Alterado","llm":"GPT"}', content_type='application/json').status_code, 403)
+        self.assertEqual(Client().patch(path, data='{}', content_type='application/json').status_code, 302)
+
 class DeploymentSettingsTests(SimpleTestCase):
     def settings_for(self, **environment):
         import os
