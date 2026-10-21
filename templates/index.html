@@ -1,0 +1,142 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Status Dashboard</title>
+  <link rel="stylesheet" href="{% static 'dashboard/styles.css' %}">
+</head>
+<body>
+  <div hidden>{% csrf_token %}</div>
+  <p id="connection-status" class="connection-status" role="status" hidden></p>
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span> STATUS-DASHBOARD</div>
+    <div class="topbar-actions">
+    <nav class="tabs">
+      <button class="tab active" data-tab="inicio">Início</button>
+      <button class="tab" data-tab="dashboard">Dashboard</button>
+    </nav>
+    {% if user.is_staff %}<a class="btn-ghost" href="/admin/">Administração</a>{% endif %}
+    <button id="import-legacy" class="btn-ghost" type="button" hidden>Importar dados locais</button>
+    <button id="logout" class="btn-ghost" type="button">Sair</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ABA PRINCIPAL -->
+    <section id="tab-inicio" class="tab-panel active">
+      <div class="hero">
+        <h1>Gerenciar Cartórios</h1>
+        <p class="muted">Crie cartórios, pastas e assistentes. Pastas e assistentes são opcionais.</p>
+        <div class="actions">
+          <button class="btn-big" data-open="modal-cartorio">CRIAR CARTÓRIO</button>
+          <button class="btn-big" data-open="modal-pasta">CRIAR PASTA</button>
+          <button class="btn-big" data-open="modal-assistente">CRIAR ASSISTENTE</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section id="tab-dashboard" class="tab-panel">
+      <div class="kpis" id="kpis"></div>
+
+      <div class="toolbar">
+        <input id="filtro-busca" type="search" placeholder="Buscar por nome ou ID...">
+        <select id="filtro-estado"><option value="">Todos os estados</option></select>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <h2>Cartórios</h2>
+          <div id="lista-cartorios" class="cards"></div>
+        </div>
+        <div class="side">
+          <div class="panel">
+            <h2>Assistentes por LLM</h2>
+            <div id="chart-llm"></div>
+          </div>
+          <div class="panel">
+            <h2>Cartórios por estado</h2>
+            <div id="chart-estado"></div>
+          </div>
+          <div class="panel">
+            <h2>Itens sem vínculo</h2>
+            <div id="soltos"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL CARTÓRIO -->
+  <dialog id="modal-cartorio" class="modal">
+    <form method="dialog" id="form-cartorio">
+      <h2>Criar Cartório</h2>
+      <label>Nome *<input name="nome" required></label>
+      <div class="row">
+        <label>ID *<input name="id" required></label>
+        <label>Estado *<select name="estado" required class="sel-estado"></select></label>
+      </div>
+      <fieldset>
+        <legend>Pastas (opcional)</legend>
+        <div class="checklist" data-source="pastas"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Assistentes (opcional)</legend>
+        <div class="checklist" data-source="assistentes"></div>
+      </fieldset>
+      <p class="erro" hidden></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL PASTA -->
+  <dialog id="modal-pasta" class="modal">
+    <form method="dialog" id="form-pasta">
+      <h2>Criar Pasta</h2>
+      <label>Nome da pasta *<input name="nome" required></label>
+      <label>Vincular a um cartório (opcional)
+        <select name="cartorio" class="sel-cartorio"></select>
+      </label>
+      <fieldset>
+        <legend>Assistentes (opcional)</legend>
+        <div class="checklist" data-source="assistentes"></div>
+      </fieldset>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL ASSISTENTE -->
+  <dialog id="modal-assistente" class="modal">
+    <form method="dialog" id="form-assistente">
+      <h2>Criar Assistente</h2>
+      <label>Nome *<input name="nome" required></label>
+      <label>LLM *
+        <input name="llm" required list="llms" placeholder="Ex.: Claude Opus 5.5">
+        <datalist id="llms">
+          <option value="Claude Opus 5.5"><option value="Claude Sonnet 5.5"><option value="Claude Haiku 5.5">
+          <option value="GPT"><option value="Gemini"><option value="Llama"><option value="Mistral">
+        </datalist>
+      </label>
+      <div class="row">
+        <label>Vincular a cartório (opcional)<select name="cartorio" class="sel-cartorio"></select></label>
+        <label>Vincular a pasta (opcional)<select name="pasta" class="sel-pasta"></select></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="{% static 'dashboard/app.js' %}"></script>
+</body>
+</html>
