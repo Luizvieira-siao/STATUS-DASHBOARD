@@ -1,8 +1,10 @@
+import csv
 import json
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
+from django.utils import timezone
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
@@ -25,6 +27,47 @@ def snapshot():
         'pastas': [dict(uid=str(p.pk), nome=p.nome, assistentes=[str(x.pk) for x in p.assistentes.all()]) for p in Pasta.objects.all().prefetch_related('assistentes')],
         'assistentes': [dict(uid=str(a.pk), nome=a.nome, llm=a.llm) for a in Assistente.objects.all()],
     }
+
+
+@login_required
+@require_GET
+def export_csv(request):
+    data = snapshot()
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = (
+        f'attachment; filename="status-relatorio-{timezone.localdate():%Y-%m-%d}.csv"'
+    )
+    response['Cache-Control'] = 'no-store'
+    response.write('\ufeff')
+    writer = csv.writer(response, delimiter=';', lineterminator='\r\n')
+
+    def safe(value):
+        value = str(value)
+        # Impede que nomes cadastrados sejam executados como fórmulas na planilha.
+        if value.lstrip().startswith(('=', '+', '-', '@')) or value.startswith(('\t', '\r', '\n')):
+            return "'" + value
+        return value
+
+    def links(items):
+        return ' | '.join(f"{item['nome']} [{item['uid']}]" for item in items)
+
+    def write(values):
+        writer.writerow([safe(value) for value in values])
+
+    write(['Tipo', 'UID', 'Nome', 'Identificador', 'Estado', 'LLM', 'Cartórios vinculados', 'Pastas vinculadas', 'Assistentes vinculados'])
+    for registry in data['cartorios']:
+        write(['Cartório', registry['uid'], registry['nome'], registry['id'], registry['estado'], '', '',
+               links(p for p in data['pastas'] if p['uid'] in registry['pastas']),
+               links(a for a in data['assistentes'] if a['uid'] in registry['assistentes'])])
+    for folder in data['pastas']:
+        write(['Pasta', folder['uid'], folder['nome'], '', '', '',
+               links(c for c in data['cartorios'] if folder['uid'] in c['pastas']), '',
+               links(a for a in data['assistentes'] if a['uid'] in folder['assistentes'])])
+    for assistant in data['assistentes']:
+        write(['Assistente', assistant['uid'], assistant['nome'], '', '', assistant['llm'],
+               links(c for c in data['cartorios'] if assistant['uid'] in c['assistentes']),
+               links(p for p in data['pastas'] if assistant['uid'] in p['assistentes']), ''])
+    return response
 
 def read_json(request):
     data = json.loads(request.body)

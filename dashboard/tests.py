@@ -237,3 +237,54 @@ class DeploymentSettingsTests(SimpleTestCase):
         from django.core.exceptions import ImproperlyConfigured
         with self.assertRaisesMessage(ImproperlyConfigured, 'PostgreSQL'):
             self.settings_for(DJANGO_SECRET_KEY='test-key', DATABASE_URL='sqlite:///db.sqlite3')
+
+
+class CsvExportTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user('export-user')
+        self.client.force_login(self.user)
+
+    def rows(self, response):
+        import csv
+        import io
+        return list(csv.DictReader(io.StringIO(response.content.decode('utf-8-sig')), delimiter=';'))
+
+    def test_export_requires_login_and_get(self):
+        self.assertEqual(Client().get('/relatorios/cadastros.csv').status_code, 302)
+        self.assertEqual(self.client.post('/relatorios/cadastros.csv').status_code, 405)
+
+    def test_export_empty_has_headers(self):
+        response = self.client.get('/relatorios/cadastros.csv')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content.startswith(b'\xef\xbb\xbf'))
+        self.assertIn('attachment;', response['Content-Disposition'])
+        self.assertEqual(response['Cache-Control'], 'no-store')
+        self.assertEqual(self.rows(response), [])
+        self.assertIn('Assistentes vinculados', response.content.decode('utf-8-sig'))
+
+    def test_export_entities_relations_and_csv_escaping(self):
+        assistant = Assistente.objects.create(owner=self.user, nome='Assistente; "João"\nAtendimento', llm='Gemini 3.8')
+        folder = Pasta.objects.create(owner=self.user, nome='Certidões')
+        folder.assistentes.add(assistant)
+        registry = Cartorio.objects.create(owner=self.user, nome='Cartório São José', id='001', estado='PE')
+        registry.pastas.add(folder)
+        registry.assistentes.add(assistant)
+        standalone = Pasta.objects.create(owner=self.user, nome='Sem vínculo')
+        rows = self.rows(self.client.get('/relatorios/cadastros.csv?estado=SP'))
+        self.assertEqual(len(rows), 4)
+        by_uid = {row['UID']: row for row in rows}
+        self.assertEqual(by_uid[str(assistant.pk)]['Nome'], assistant.nome)
+        self.assertEqual(by_uid[str(assistant.pk)]['LLM'], 'Gemini 3.8')
+        self.assertIn(str(registry.pk), by_uid[str(assistant.pk)]['Cartórios vinculados'])
+        self.assertIn(str(folder.pk), by_uid[str(assistant.pk)]['Pastas vinculadas'])
+        self.assertIn(str(assistant.pk), by_uid[str(folder.pk)]['Assistentes vinculados'])
+        self.assertIn(str(folder.pk), by_uid[str(registry.pk)]['Pastas vinculadas'])
+        self.assertEqual(by_uid[str(registry.pk)]['Identificador'], '001')
+        self.assertEqual(by_uid[str(standalone.pk)]['Cartórios vinculados'], '')
+
+    def test_export_neutralizes_spreadsheet_formulas(self):
+        assistant = Assistente.objects.create(owner=self.user, nome='  =1+1', llm='@SUM(1)')
+        row = self.rows(self.client.get('/relatorios/cadastros.csv'))[0]
+        self.assertEqual(row['UID'], str(assistant.pk))
+        self.assertEqual(row['Nome'], "'  =1+1")
+        self.assertEqual(row['LLM'], "'@SUM(1)")

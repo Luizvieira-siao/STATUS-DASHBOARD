@@ -2,6 +2,12 @@
 
 Django 5.2 LTS com autenticação nativa, SQLite, administração e histórico de login. Python 3.10+ (incluindo Python 3.14).
 
+## Relatório CSV
+
+Na aba **Dashboard**, clique em **Exportar relatório CSV**. O arquivo contém todos os cartórios, pastas e assistentes do espaço compartilhado, inclusive os sem vínculos, independentemente dos filtros na tela. Cada cadastro ocupa uma linha, com tipo, UID, nome, identificador, estado, LLM e vínculos identificados por nome e UID. Vínculos de assistentes com cartórios são os vínculos diretos; a associação por pastas aparece nas colunas de pastas.
+
+A exportação exige login e usa UTF-8 com BOM, separador `;` e proteção contra fórmulas em campos de texto. No Excel, importe identificadores como texto caso precise preservar zeros à esquerda.
+
 ## Executar neste projeto
 
 As dependências já estão instaladas em `.venv` e as migrações foram aplicadas.

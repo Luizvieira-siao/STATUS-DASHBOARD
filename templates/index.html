@@ -64,6 +64,7 @@
       <div class="toolbar">
         <input id="filtro-busca" type="search" aria-label="Buscar cartórios" placeholder="Buscar cartório por nome ou ID...">
         <select id="filtro-estado" aria-label="Filtrar por estado"><option value="">Todos os estados</option></select>
+        <a class="btn-ghost" href="{% url 'export_csv' %}" title="Exportar todos os cartórios, pastas, assistentes e seus vínculos">Exportar relatório CSV</a>
       </div>
 
       <div class="grid-2">
