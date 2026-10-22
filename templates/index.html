@@ -64,7 +64,7 @@
       <div class="toolbar">
         <input id="filtro-busca" type="search" aria-label="Buscar cartórios" placeholder="Buscar cartório por nome ou ID...">
         <select id="filtro-estado" aria-label="Filtrar por estado"><option value="">Todos os estados</option></select>
-        <a class="btn-ghost" href="{% url 'export_csv' %}" title="Exportar todos os cartórios, pastas, assistentes e seus vínculos">Exportar relatório CSV</a>
+        <button class="btn-ghost" id="open-report" type="button">Gerar relatório</button>
       </div>
 
       <div class="grid-2">
@@ -231,6 +231,29 @@
     </form>
   </dialog>
 
+  <dialog id="modal-report" class="modal report-modal" aria-labelledby="report-title">
+    <form id="form-report" data-preview-url="{% url 'report_preview' %}" data-export-url="{% url 'export_csv' %}">
+      <h2 id="report-title">Relatório personalizado</h2>
+      <label for="report-question">O que você quer consultar?
+        <textarea id="report-question" name="question" rows="3" minlength="3" maxlength="1000" required placeholder="Ex.: Quantos assistentes usam Gemini e quantas pastas cada cartório possui?" aria-describedby="report-help"></textarea>
+      </label>
+      <p id="report-help" class="muted">Descreva a consulta. Você pode pedir totais, vínculos, listas e contagens por modelo. Sua pergunta será enviada ao Gemini; os cadastros e os cálculos ficam no servidor.</p>
+      <div class="report-examples" role="group" aria-label="Exemplos de perguntas">
+        <button type="button" class="btn-ghost" data-report-example="Quantas pastas e assistentes cada cartório possui?">Pastas por cartório</button>
+        <button type="button" class="btn-ghost" data-report-example="Quantos assistentes usam Gemini, separados por versão?">Assistentes no Gemini</button>
+        <button type="button" class="btn-ghost" data-report-example="Mostre os totais de cartórios, pastas e assistentes.">Totais gerais</button>
+        <button type="button" class="btn-ghost" data-report-example="Mostre as pastas sem cartório e os assistentes sem vínculo.">Cadastros sem vínculo</button>
+      </div>
+      <p id="report-interpretation" class="muted" hidden></p>
+      <p id="report-error" class="erro" role="alert" hidden></p>
+      <div class="modal-actions">
+        <button class="btn-ghost" type="button" data-close>Fechar</button>
+        <button class="btn" type="submit">Visualizar relatório</button>
+        <a id="report-download" class="btn-ghost" hidden>Baixar CSV</a>
+      </div>
+    </form>
+    <div id="report-preview" aria-live="polite"></div>
+  </dialog>
   <div id="toast" class="toast" hidden></div>
   <script src="{% static 'dashboard/app.js' %}"></script>
 </body>

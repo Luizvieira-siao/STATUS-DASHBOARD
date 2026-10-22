@@ -199,3 +199,25 @@ legend { color: var(--muted); font-size: 11px; padding: 0 7px; }
   .workspace-badge { white-space: normal; }
   .toast { overflow-wrap: anywhere; }
 }
+
+.report-modal { width: min(1000px, calc(100% - 24px)); }
+.report-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.report-options legend { margin-bottom: 8px; }
+.report-options label { flex-direction: row; align-items: center; margin: 0; color: var(--text); cursor: pointer; }
+.report-options input { width: 18px; height: 18px; padding: 0; flex-shrink: 0; accent-color: var(--green); }
+.report-section { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 12px; }
+.report-section h3 { font-size: 16px; }
+.report-table-scroll { overflow-x: auto; max-width: 100%; }
+.report-table-scroll:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.report-section table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.report-section caption { text-align: left; color: var(--muted); margin-bottom: 8px; }
+.report-section th, .report-section td { padding: 10px; text-align: left; border: 1px solid var(--border); overflow-wrap: anywhere; min-width: 100px; }
+.report-section th { background: var(--surface-2); }
+@media (max-width: 760px) { .report-options { grid-template-columns: 1fr; } .report-options label { min-height: 44px; } .report-modal .modal-actions > a { flex: 1; min-height: 44px; } }
+
+#report-question { width: 100%; min-height: 100px; resize: vertical; font: inherit; font-size: 16px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: #0a2117; color: var(--text); }
+#report-question:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px #42e58618; }
+#report-question::placeholder { color: var(--muted); }
+.report-examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+#report-interpretation { padding: 12px; border-left: 3px solid var(--green); background: var(--green-soft); }
+@media (max-width: 760px) { .report-examples button { min-height: 44px; text-align: left; } }

@@ -2,6 +2,7 @@ import csv
 import json
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
@@ -9,6 +10,8 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from .models import Cartorio, Pasta, Assistente
+from .reports import build_report
+from .report_ai import interpret_question, ReportAIError
 
 MODELS = {'cartorios': Cartorio, 'pastas': Pasta, 'assistentes': Assistente}
 
@@ -30,9 +33,44 @@ def snapshot():
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
+def report_preview(request):
+    try:
+        if request.method == 'POST':
+            payload = read_json(request)
+            question = payload.get('question')
+            if not isinstance(question, str) or not 3 <= len(question.strip()) <= 1000:
+                raise ValueError('Digite uma pergunta entre 3 e 1.000 caracteres.')
+            bucket = f'report-ai:{request.user.pk}:{int(timezone.now().timestamp()) // 60}'
+            if cache.add(bucket, 1, timeout=120):
+                count = 1
+            else:
+                count = cache.incr(bucket)
+            if count > 10:
+                return JsonResponse({'error': 'Aguarde um minuto antes de gerar mais relatórios.'}, status=429)
+            plan = interpret_question(question.strip())
+        else:
+            plan = {'sections': request.GET.get('sections', '').split(','), 'model': request.GET.get('model', '')}
+        tables = build_report(snapshot(), plan['sections'], plan['model'])
+    except ReportAIError as error:
+        return JsonResponse({'error': str(error)}, status=error.status)
+    except ValueError as error:
+        return JsonResponse({'error': str(error)}, status=400)
+    response = JsonResponse({'tables': tables, 'plan': plan})
+    response['Cache-Control'] = 'no-store'
+    return response
+
+
+@login_required
 @require_GET
 def export_csv(request):
     data = snapshot()
+    tables = None
+    if 'sections' in request.GET:
+        try:
+            tables = build_report(data, request.GET['sections'].split(','), request.GET.get('model', ''))
+        except ValueError as error:
+            return JsonResponse({'error': str(error)}, status=400)
     response = HttpResponse(content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = (
         f'attachment; filename="status-relatorio-{timezone.localdate():%Y-%m-%d}.csv"'
@@ -53,6 +91,17 @@ def export_csv(request):
 
     def write(values):
         writer.writerow([safe(value) for value in values])
+
+    if tables is not None:
+        model = request.GET.get('model', '')
+        write(['Filtro de assistentes', 'Gemini — todas as versões' if model == '__gemini__' else model or 'Todos os modelos'])
+        for table in tables:
+            write([])
+            write([table['title']])
+            write(table['headers'])
+            for row in table['rows']:
+                write(row)
+        return response
 
     write(['Tipo', 'UID', 'Nome', 'Identificador', 'Estado', 'LLM', 'Cartórios vinculados', 'Pastas vinculadas', 'Assistentes vinculados'])
     for registry in data['cartorios']:

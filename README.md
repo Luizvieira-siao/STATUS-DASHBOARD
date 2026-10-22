@@ -4,9 +4,21 @@ Django 5.2 LTS com autenticação nativa, SQLite, administração e histórico d
 
 ## Relatório CSV
 
-Na aba **Dashboard**, clique em **Exportar relatório CSV**. O arquivo contém todos os cartórios, pastas e assistentes do espaço compartilhado, inclusive os sem vínculos, independentemente dos filtros na tela. Cada cadastro ocupa uma linha, com tipo, UID, nome, identificador, estado, LLM e vínculos identificados por nome e UID. Vínculos de assistentes com cartórios são os vínculos diretos; a associação por pastas aparece nas colunas de pastas.
+Na aba **Dashboard**, clique em **Gerar relatório** e digite sua pergunta, por exemplo: “Quantos assistentes usam Gemini?” ou “Quantas pastas cada cartório possui?”. O Gemini interpreta a pergunta em seções e um filtro de modelo; o Django valida o plano e calcula os resultados. A prévia mostra a interpretação usada. Perguntas fora das capacidades suportadas pedem reformulação, sem executar SQL ou código gerado pela IA.
 
-A exportação exige login e usa UTF-8 com BOM, separador `;` e proteção contra fórmulas em campos de texto. No Excel, importe identificadores como texto caso precise preservar zeros à esquerda.
+As consultas suportadas são totais gerais, pastas/assistentes por cartório, assistentes por pasta, distribuição por modelo, lista de assistentes e cadastros sem vínculo. É possível filtrar assistentes por um modelo exato ou por todas as versões do Gemini. Filtros por nome de cartório, estado, data e rankings ainda não são suportados. Os totais por cartório contam assistentes únicos nos vínculos diretos e nas pastas.
+
+Clique em **Visualizar relatório** e depois em **Baixar CSV**. Ao editar a pergunta, gere uma nova prévia. O download usa o plano validado sem chamar a IA novamente e consulta os dados atuais. O CSV usa UTF-8 com BOM, separador `;` e proteção contra fórmulas; importe identificadores como texto no Excel para preservar zeros à esquerda. A URL `/relatorios/cadastros.csv` sem parâmetros mantém a exportação completa anterior.
+
+### Configurar o Gemini
+
+No Render, em **Environment**, defina `GEMINI_API_KEY` e faça deploy do código. Opcionalmente configure `GEMINI_MODEL` (padrão: `gemini-3.5-flash-lite`). A chave nunca vai ao navegador. O servidor envia somente a pergunta e as instruções de interpretação; nomes, UIDs e demais registros do banco não são enviados. O próprio texto digitado é enviado ao Google: evite incluir informações confidenciais.
+
+O modelo padrão oferece cota gratuita conforme a conta e os limites do Google; a aplicação não ativa faturamento nem altera o plano da conta. Se houver erro de chave, limite ou conexão, a tela informa o problema. Sem chave, a consulta por pergunta fica indisponível, mas a exportação completa continua funcionando. Para desenvolvimento local, preencha `GEMINI_API_KEY` no arquivo `.env` na raiz. Ele é carregado automaticamente; variáveis já definidas no ambiente têm prioridade. O `.env` é ignorado pelo Git. Nunca grave a chave real em `.env.example`.
+
+A integração usa a API REST com saída estruturada, timeout de 20 segundos e limite local de 10 perguntas por usuário/minuto. Esse limite usa o cache Django: com o cache de memória padrão, ele é por processo e reinicia com o serviço. Para limite compartilhado entre workers, configure um backend de cache compartilhado. Os testes simulam o provedor e não consomem cota real.
+
+Referências: [saída estruturada do Gemini](https://ai.google.dev/gemini-api/docs/generate-content/structured-output), [preços e cotas gratuitas](https://ai.google.dev/gemini-api/docs/pricing).
 
 ## Executar neste projeto
 

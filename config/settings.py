@@ -3,7 +3,10 @@ import secrets
 import dj_database_url
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
+from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
+if os.environ.get('RENDER') != 'true':
+    load_dotenv(BASE_DIR / '.env', override=False)
 ON_RENDER = os.environ.get('RENDER') == 'true'
 DEBUG = os.environ.get('DJANGO_DEBUG', '0' if ON_RENDER else '1') == '1'
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
@@ -71,3 +74,7 @@ if ON_RENDER and RENDER_HOSTNAME:
 # Render terminates TLS at its trusted ingress. Elsewhere this requires explicit opt-in.
 if ON_RENDER or os.environ.get('DJANGO_TRUST_PROXY') == '1':
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# IA dos relatórios: a chave permanece somente no servidor.
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '').strip()
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-3.5-flash-lite').strip()

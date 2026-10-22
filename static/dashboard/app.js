@@ -445,3 +445,69 @@ importButton.addEventListener('click', async () => {
     importButton.disabled = false;
   }
 });
+
+// ===== Relatório personalizado =====
+const reportForm = document.getElementById('form-report');
+const reportDialog = document.getElementById('modal-report');
+const reportPreview = document.getElementById('report-preview');
+const reportDownload = document.getElementById('report-download');
+const reportError = document.getElementById('report-error');
+let reportRevision = 0;
+function clearReport() {
+  reportRevision++;
+  reportDownload.hidden = true;
+  reportDownload.removeAttribute('href');
+  reportPreview.replaceChildren();
+  reportError.hidden = true;
+  document.getElementById('report-interpretation').hidden = true;
+}
+document.getElementById('open-report').addEventListener('click', () => {
+  clearReport();
+  reportDialog.showModal();
+  reportForm.elements.question.focus();
+});
+reportForm.addEventListener('input', clearReport);
+document.querySelectorAll('[data-report-example]').forEach(button => {
+  button.addEventListener('click', () => {
+    reportForm.elements.question.value = button.dataset.reportExample;
+    clearReport();
+    reportForm.elements.question.focus();
+  });
+});
+reportForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  clearReport();
+  const question = reportForm.elements.question.value.trim();
+  if (question.length < 3) {
+    reportError.textContent = 'Digite o que deseja consultar.';
+    reportError.hidden = false;
+    return;
+  }
+  const revision = reportRevision;
+  const button = reportForm.querySelector('[type="submit"]');
+  button.disabled = true;
+  button.textContent = 'Gerando…';
+  try {
+    const result = await api(reportForm.dataset.previewUrl, 'POST', { question });
+    if (revision !== reportRevision || !reportDialog.open) return;
+    reportPreview.innerHTML = result.tables.map(table => `<section class="report-section"><h3>${esc(table.title)}</h3>${table.rows.length
+      ? `<div class="report-table-scroll" tabindex="0" role="region" aria-label="${esc(table.title)}"><table><caption>${esc(table.title)}</caption><thead><tr>${table.headers.map(header => `<th scope="col">${esc(header)}</th>`).join('')}</tr></thead><tbody>${table.rows.map(row => `<tr>${row.map(value => `<td>${esc(value)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+      : '<p class="muted">Nenhum cadastro encontrado para esta seleção.</p>'}</section>`).join('');
+    const params = new URLSearchParams({sections: result.plan.sections.join(','), model: result.plan.model});
+    const interpretation = document.getElementById('report-interpretation');
+    const modelLabel = result.plan.model === '__gemini__' ? 'Gemini — todas as versões' : result.plan.model || 'Todos os modelos';
+    interpretation.textContent = 'Consulta: ' + result.tables.map(table => table.title).join('; ') + '. Modelo: ' + modelLabel + '. O filtro de modelo afeta apenas assistentes; totais por cartório contam assistentes únicos.';
+    interpretation.hidden = false;
+    reportDownload.href = reportForm.dataset.exportUrl + '?' + params;
+    reportDownload.hidden = false;
+  } catch (error) {
+    if (revision === reportRevision) {
+      reportError.textContent = error.message;
+      reportError.hidden = false;
+    }
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Visualizar relatório';
+  }
+});
+reportDialog.addEventListener('close', clearReport);

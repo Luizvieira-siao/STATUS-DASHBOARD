@@ -200,7 +200,7 @@ class DeploymentSettingsTests(SimpleTestCase):
         from pathlib import Path
         from unittest.mock import patch
         from django.conf import settings
-        with patch.dict(os.environ, environment, clear=True):
+        with patch.dict(os.environ, environment, clear=True), patch('dotenv.load_dotenv'):
             return runpy.run_path(str(Path(settings.BASE_DIR) / 'config/settings.py'))
 
     def test_local_keeps_sqlite_without_trusting_proxy(self):
@@ -288,3 +288,154 @@ class CsvExportTests(TestCase):
         self.assertEqual(row['UID'], str(assistant.pk))
         self.assertEqual(row['Nome'], "'  =1+1")
         self.assertEqual(row['LLM'], "'@SUM(1)")
+
+
+class CustomReportTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user('report-user')
+        self.client.force_login(self.user)
+        self.gemini = Assistente.objects.create(owner=self.user, nome='Gemini A', llm='Gemini 3.8')
+        self.older = Assistente.objects.create(owner=self.user, nome='Gemini B', llm='Gemini 3.6')
+        self.other = Assistente.objects.create(owner=self.user, nome='Outro', llm='GPT')
+        self.folder = Pasta.objects.create(owner=self.user, nome='Pasta A')
+        self.folder.assistentes.add(self.gemini, self.other)
+        self.registry = Cartorio.objects.create(owner=self.user, nome='Cartório A', id='001', estado='PE')
+        self.registry.pastas.add(self.folder)
+        self.registry.assistentes.add(self.gemini)
+
+    def preview(self, sections, model=''):
+        return self.client.get('/api/reports/preview/', {'sections': sections, 'model': model})
+
+    def test_authentication_and_invalid_selections(self):
+        self.assertEqual(Client().get('/api/reports/preview/').status_code, 302)
+        for sections in ['', 'invalido', 'resumo,invalido']:
+            self.assertEqual(self.preview(sections).status_code, 400)
+            self.assertEqual(self.client.get('/relatorios/cadastros.csv', {'sections': sections}).status_code, 400)
+
+    def test_unique_registry_counts_and_gemini_family(self):
+        response = self.preview('resumo,cartorios,modelos', '__gemini__')
+        self.assertEqual(response.status_code, 200)
+        tables = {table['key']: table for table in response.json()['tables']}
+        self.assertEqual(tables['resumo']['rows'][2][1], 2)
+        self.assertEqual(tables['cartorios']['rows'][0][3:], [1, 1, 1, 1])
+        self.assertEqual(tables['modelos']['rows'], [['Gemini 3.6', 1], ['Gemini 3.8', 1]])
+        unfiltered = self.preview('cartorios').json()['tables'][0]
+        self.assertEqual(unfiltered['rows'][0][3:], [1, 1, 2, 2])
+
+    def test_exact_model_and_unlinked_records(self):
+        tables = self.preview('assistentes,sem_vinculo', 'Gemini 3.6').json()['tables']
+        self.assertEqual(len(tables[0]['rows']), 1)
+        self.assertEqual(tables[0]['rows'][0][0], 'Gemini B')
+        self.assertEqual(tables[1]['rows'], [['Assistente', 'Gemini B', str(self.older.pk)]])
+        self.assertEqual(self.preview('assistentes', 'inexistente').json()['tables'][0]['rows'], [])
+
+    def test_custom_csv_matches_preview_and_selected_sections(self):
+        import csv
+        import io
+        params = {'sections': 'cartorios,modelos', 'model': '__gemini__'}
+        response = self.client.get('/relatorios/cadastros.csv', params)
+        self.assertEqual(response.status_code, 200)
+        rows = list(csv.reader(io.StringIO(response.content.decode('utf-8-sig')), delimiter=';'))
+        for table in self.preview(**params).json()['tables']:
+            self.assertIn([table['title']], rows)
+            self.assertIn(table['headers'], rows)
+            for row in table['rows']:
+                self.assertIn([str(value) for value in row], rows)
+        self.assertNotIn(['Lista de assistentes'], rows)
+
+
+@override_settings(GEMINI_API_KEY='test-secret', GEMINI_MODEL='gemini-3.5-flash-lite')
+class ReportAITests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.user = get_user_model().objects.create_user('ai-report-user')
+        self.client.force_login(self.user)
+
+    def ask(self, question):
+        return self.client.post('/api/reports/preview/', data=json.dumps({'question': question}), content_type='application/json')
+
+    def provider(self, plan):
+        from unittest.mock import MagicMock
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps({
+            'candidates': [{'finishReason': 'STOP', 'content': {'parts': [{'text': json.dumps(plan)}]}}]
+        }).encode()
+        return response
+
+    def test_interpretation_and_preview_export_without_second_ai_call(self):
+        from unittest.mock import patch
+        assistant = Assistente.objects.create(owner=self.user, nome='Nome privado', llm='Gemini 3.8')
+        plan = {'sections': ['modelos'], 'model': '__gemini__', 'clarification': ''}
+        with patch('dashboard.report_ai.urlopen', return_value=self.provider(plan)) as upstream:
+            response = self.ask('Quantos assistentes usam Gemini?')
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()['tables'][0]['rows'], [['Gemini 3.8', 1]])
+            params = response.json()['plan']
+            export = self.client.get('/relatorios/cadastros.csv', {'sections': ','.join(params['sections']), 'model': params['model']})
+            self.assertEqual(export.status_code, 200)
+            self.assertIn('Gemini 3.8;1', export.content.decode('utf-8-sig'))
+            self.assertEqual(upstream.call_count, 1)
+            request = upstream.call_args.args[0]
+            payload = json.loads(request.data)
+            self.assertEqual(payload['contents'][0]['parts'][0]['text'], 'Quantos assistentes usam Gemini?')
+            self.assertNotIn(assistant.nome, request.data.decode())
+            self.assertNotIn(str(assistant.pk), request.data.decode())
+            self.assertNotIn('test-secret', request.full_url)
+            self.assertNotIn('test-secret', response.content.decode())
+            self.assertEqual(upstream.call_args.kwargs['timeout'], 20)
+
+    def test_invalid_questions_do_not_call_ai(self):
+        from unittest.mock import patch
+        with patch('dashboard.report_ai.urlopen') as upstream:
+            for question in ['', 'ab', 'x' * 1001, None, ['consulta']]:
+                self.assertEqual(self.ask(question).status_code, 400)
+            self.assertEqual(self.client.post('/api/reports/preview/', data='{', content_type='application/json').status_code, 400)
+            upstream.assert_not_called()
+
+    def test_authentication_and_csrf(self):
+        self.assertEqual(Client().post('/api/reports/preview/').status_code, 302)
+        secure = Client(enforce_csrf_checks=True)
+        secure.force_login(self.user)
+        self.assertEqual(secure.post('/api/reports/preview/', data='{}', content_type='application/json').status_code, 403)
+
+    @override_settings(GEMINI_API_KEY='')
+    def test_missing_key(self):
+        from unittest.mock import patch
+        with patch('dashboard.report_ai.urlopen') as upstream:
+            response = self.ask('Mostre os totais gerais')
+            self.assertEqual(response.status_code, 503)
+            self.assertIn('GEMINI_API_KEY', response.json()['error'])
+            upstream.assert_not_called()
+
+    def test_clarification_and_invalid_provider_plan(self):
+        from unittest.mock import patch
+        for plan, status in [
+            ({'sections': [], 'model': '', 'clarification': 'Qual informação você quer consultar?'}, 422),
+            ({'sections': ['DROP TABLE'], 'model': '', 'clarification': ''}, 502),
+            ({'sections': ['resumo'], 'model': '', 'clarification': '', 'sql': 'SELECT 1'}, 502),
+            ({'sections': [], 'model': '', 'clarification': ''}, 502),
+        ]:
+            with patch('dashboard.report_ai.urlopen', return_value=self.provider(plan)):
+                self.assertEqual(self.ask('Consulta personalizada').status_code, status)
+
+    def test_provider_errors_do_not_expose_secrets(self):
+        from unittest.mock import patch
+        from urllib.error import HTTPError, URLError
+        for error, status in [(HTTPError('secret-url', 429, 'test-secret', {}, None), 429),
+                              (HTTPError('secret-url', 403, 'test-secret', {}, None), 503),
+                              (HTTPError('secret-url', 404, 'test-secret', {}, None), 503),
+                              (URLError('test-secret'), 503), (TimeoutError('test-secret'), 503)]:
+            with patch('dashboard.report_ai.urlopen', side_effect=error):
+                response = self.ask('Mostre os totais gerais')
+                self.assertEqual(response.status_code, status)
+                self.assertNotIn('test-secret', response.content.decode())
+
+    def test_local_request_limit(self):
+        from unittest.mock import patch
+        plan = {'sections': ['resumo'], 'model': '', 'clarification': ''}
+        with patch('dashboard.report_ai.urlopen', return_value=self.provider(plan)) as upstream:
+            for _ in range(10):
+                self.assertEqual(self.ask('Mostre os totais gerais').status_code, 200)
+            self.assertEqual(self.ask('Mostre os totais gerais').status_code, 429)
+            self.assertEqual(upstream.call_count, 10)

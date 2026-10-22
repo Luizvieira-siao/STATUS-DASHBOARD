@@ -12,6 +12,7 @@ urlpatterns = [
     path('api/session', views.session),
     path('api/state/', views.state),
     path('relatorios/cadastros.csv', views.export_csv, name='export_csv'),
+    path('api/reports/preview/', views.report_preview, name='report_preview'),
     path('api/import/', views.import_legacy),
     path('api/cartorios/<uuid:registry_uid>/pastas/<uuid:folder_uid>/', views.unlink_folder),
     path('api/items/<str:kind>/', views.items),
