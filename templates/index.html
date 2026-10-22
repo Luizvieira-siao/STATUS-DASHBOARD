@@ -27,7 +27,26 @@
     <section id="tab-inicio" class="tab-panel active">
       <div class="hero">
         <span class="eyebrow"><span class="dot"></span> SEU ESPAÇO DE TRABALHO</span>
-        <h1>Uma visão clara.<br><span>Uma gestão conectada.</span></h1>
+        <div class="hero-heading">
+          <h1>Uma visão clara.<br><span>Uma gestão conectada.</span></h1>
+          <svg class="hero-logo" viewBox="48 298 817 310" role="img" aria-labelledby="siao-logo-title" xmlns="http://www.w3.org/2000/svg">
+            <title id="siao-logo-title">Sião</title>
+            <defs>
+              <clipPath id="siao-symbol"><rect width="280" height="900"/></clipPath>
+              <clipPath id="siao-wordmark"><rect x="280" width="620" height="900"/></clipPath>
+              <filter id="siao-symbol-color" color-interpolation-filters="sRGB" x="0" y="0" width="100%" height="100%">
+                <feColorMatrix type="matrix" values="0 0 0 0 0.258824  0 0 0 0 0.898039  0 0 0 0 0.525490  -3.125 0 -3.125 0 5.125"/>
+                <feMorphology operator="erode" radius="0.35"/>
+              </filter>
+              <filter id="siao-wordmark-color" color-interpolation-filters="sRGB" x="0" y="0" width="100%" height="100%">
+                <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  -3.125 0 -3.125 0 5.125"/>
+                <feMorphology operator="erode" radius="0.35"/>
+              </filter>
+            </defs>
+            <image href="{% static 'dashboard/images/siao-original.jpg' %}" width="900" height="900" filter="url(#siao-symbol-color)" clip-path="url(#siao-symbol)"/>
+            <image href="{% static 'dashboard/images/siao-original.jpg' %}" width="900" height="900" filter="url(#siao-wordmark-color)" clip-path="url(#siao-wordmark)"/>
+          </svg>
+        </div>
         <p class="muted">Organize seus cartórios, conecte assistentes e acompanhe tudo em um só lugar.</p>
         <div class="actions">
           <button class="btn-big" data-open="modal-cartorio"><span class="action-icon" aria-hidden="true">▦</span><strong>Criar cartório</strong><span class="action-description">O ponto de partida da sua operação.</span><span class="action-arrow" aria-hidden="true">↗</span></button>

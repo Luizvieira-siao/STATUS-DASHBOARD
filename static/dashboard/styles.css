@@ -40,6 +40,14 @@ main { max-width: 1440px; margin: 0 auto; padding: 38px 4vw 64px; }
 .hero::before { content: ''; pointer-events: none; position: absolute; z-index: -1; inset: -30px -3vw; background: radial-gradient(ellipse at 80% 20%, #24d96d26, transparent 55%); }
 .hero h1 { margin: 24px 0 18px; font-size: clamp(36px, 5.5vw, 74px); line-height: 1.12; font-weight: 500; letter-spacing: -.055em; }
 .hero h1 > span { color: var(--green); }
+.hero-heading { display: flex; align-items: center; justify-content: space-between; gap: 32px; width: 100%; }
+.hero-heading h1 { flex: 1; min-width: 0; }
+.hero-logo { display: block; width: clamp(160px, 22vw, 290px); height: auto; aspect-ratio: 817 / 310; flex-shrink: 0; }
+.hero-logo {
+  transform: translate(-60px, -10px);
+}
+@media (max-width: 1100px) { .hero-heading h1 { font-size: clamp(36px, 4.8vw, 60px); } .hero-logo { transform: none; } }
+@media (max-width: 760px) { .hero-heading { flex-direction: column; align-items: flex-start; gap: 12px; margin-bottom: 24px; } .hero-logo { width: 180px; max-width: 100%; transform: none; } }
 .hero > p { font-size: 16px; max-width: 520px; margin: 0; }
 .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; width: 100%; margin-top: 52px; }
 .btn-big { position: relative; display: flex; align-items: flex-start; flex-direction: column; text-align: left; padding: 28px; border: 1px solid var(--border); background: linear-gradient(145deg, #164c30, var(--surface)); color: var(--text); border-radius: var(--radius); }
@@ -171,3 +179,23 @@ legend { color: var(--muted); font-size: 11px; padding: 0 7px; }
 
 .registry-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 @media (max-width: 480px) { .card-head { flex-wrap: wrap; } }
+
+@media (max-width: 760px) {
+  /* Campos com 16px evitam o zoom automático ao receber foco no iOS. */
+  input, select, textarea, .dashboard-list-search input { font-size: 16px; }
+  .hero-heading h1 { width: 100%; overflow-wrap: anywhere; }
+  .topbar-actions, .tabs, .modal form, .row > label { min-width: 0; }
+  .tabs { flex: 1; }
+  .tab { flex: 1; padding-inline: 12px; min-height: 44px; }
+  .topbar-actions > button { min-height: 44px; }
+  .modal { max-width: calc(100% - 24px); max-height: calc(100dvh - 24px); padding: 20px; overflow-y: auto; overscroll-behavior: contain; }
+  .modal .row { flex-direction: column; gap: 0; }
+  .modal-actions { flex-wrap: wrap; }
+  .modal-actions > button { min-height: 44px; flex: 1; }
+  .checklist input { padding: 0; }
+  .card { padding: 18px; }
+  .registry-actions { flex-wrap: wrap; }
+  .kpi .label, .workspace-badge { overflow-wrap: anywhere; }
+  .workspace-badge { white-space: normal; }
+  .toast { overflow-wrap: anywhere; }
+}
